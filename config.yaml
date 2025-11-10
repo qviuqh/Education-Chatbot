@@ -1,0 +1,16 @@
+data:
+  raw: "./data/raw"
+  vectordb: "./data/vectordb"
+  host: "./data/vectordb/index.faiss"
+  chunks: "./data/vectordb/chunks.json"
+
+models:
+  embedder: "intfloat/multilingual-e5-base"
+  reranker: "BAAI/bge-reranker-base"
+  generator: "qwen2:7b"
+
+params:
+  chunk_size: 1000
+  chunk_overlap: 120
+  top_k: 5
+  temperature: 0.2

@@ -1,0 +1,12 @@
+streamlit>=1.38
+langchain 
+langchain-core 
+langchain-ollama
+langchain-community
+langchain_text_splitters
+faiss-cpu>=1.8.0
+pypdf>=4.2.0
+tiktoken>=0.7.0
+python-dotenv>=1.0.1
+transformers==4.55.0
+torch==2.8.0
