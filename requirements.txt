@@ -10,3 +10,4 @@ tiktoken>=0.7.0
 python-dotenv>=1.0.1
 transformers==4.55.0
 torch==2.8.0
+rank_bm25

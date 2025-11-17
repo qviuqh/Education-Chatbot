@@ -1,5 +1,4 @@
 data:
-  raw: "./data/raw"
   vectordb: "./data/vectordb"
   host: "./data/vectordb/index.faiss"
   chunks: "./data/vectordb/chunks.json"
@@ -8,6 +7,10 @@ models:
   embedder: "intfloat/multilingual-e5-base"
   reranker: "BAAI/bge-reranker-base"
   generator: "qwen2:7b"
+
+thresholds:
+  similarity: 0.75
+  rerank_score: 0.5
 
 params:
   chunk_size: 1000
