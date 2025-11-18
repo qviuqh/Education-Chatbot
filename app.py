@@ -95,7 +95,7 @@ if st.button("Xử lý & tạo chỉ mục"):
             store.save()
 
             st.session_state.index_built = True
-            st.success(f"Hoàn tất xử lý tài liệu!")
+            st.success("Hoàn tất xử lý tài liệu!")
 
 # --- Chat Interface ---
 st.markdown("---")
@@ -105,9 +105,7 @@ for role, msg in st.session_state.chat_history:
     with st.chat_message(role):
         st.markdown(msg)
 
-query = st.chat_input("Nhập câu hỏi...")
-
-if query:
+if (query := st.chat_input("Nhập câu hỏi...")):
     if not os.path.exists(INDEX_PATH):
         st.warning("Bạn chưa tạo chỉ mục. Hãy tải tài liệu và bấm xử lý trước.")
     else:
@@ -123,7 +121,7 @@ if query:
 
         retriever_dict.update(**{'k_semantic': hybrid_k, 'k_keyword': hybrid_k})
 
-        with st.spinner(f"Đang tìm kiếm các tài liệu liên quan..."):
+        with st.spinner("Đang tìm kiếm các tài liệu liên quan..."):
             # Retriever mới sẽ tự động tìm semantic và keyword
             fused_contexts = retriever.retrieve_with_validation(query, **retriever_dict)
 
@@ -133,7 +131,7 @@ if query:
 
         # 3. RERANK
         # Lọc lại k_final kết quả tốt nhất từ danh sách hợp nhất
-        with st.spinner(f"Đã tìm thấy kết quả. Đang lọc và xếp hạng lại..."):
+        with st.spinner("Đã tìm thấy kết quả. Đang lọc và xếp hạng lại..."):
             print(f"Đã tìm thấy {len(fused_contexts)} kết quả. Đang lọc và xếp hạng lại...")
             # top_k là biến từ thanh slider
             reranked_contexts = reranker.rerank(query, fused_contexts, topn=top_k)
@@ -155,26 +153,3 @@ if query:
             response = st.write_stream(generate_answer_stream(prompt, llm_model))
 
         st.session_state.chat_history.append(("assistant", response))
-
-# query = st.chat_input("Nhập câu hỏi...")
-
-# if query:
-#     if not os.path.exists(INDEX_PATH):
-#         st.warning("Bạn chưa tạo chỉ mục. Hãy tải tài liệu và bấm xử lý trước.")
-#     else:
-#         retriever = Retriever(INDEX_PATH, META_PATH)
-#         reranker = Reranker()
-
-#         retrieved_results = retriever.retrieve(query, k=top_k * 3) 
-#         contexts_to_rerank = [t for _, t in retrieved_results]
-
-#         reranked_contexts = reranker.rerank(query, contexts_to_rerank, topn=top_k)
-#         prompt = build_prompt(query, reranked_contexts)
-
-#         with st.chat_message("user"):
-#             st.markdown(query)
-#         st.session_state.chat_history.append(("user", query))
-
-#         with st.chat_message("assistant"):
-#             response = st.write_stream(generate_answer_stream(prompt, llm_model))
-#         st.session_state.chat_history.append(("assistant", response))

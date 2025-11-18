@@ -23,11 +23,9 @@ def generate_answer_stream(
                 "temperature": temperature
             }
         )
-
         for chunk in stream_resp:
-            token = chunk['message']['content']
-            yield token
-
+            yield chunk['message']['content']
+        
     except Exception as e:
         yield f"Lỗi khi sinh phản hồi: {e}"
 

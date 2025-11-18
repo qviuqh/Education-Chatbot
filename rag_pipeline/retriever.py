@@ -54,11 +54,7 @@ class Retriever:
         q_emb = self.embedder.encode([query], prefix="query")
         semantic_results = self.store.search(np.array(q_emb).reshape(1, -1), k=k_semantic)
         
-        semantic_docs = []
-        for score, text in semantic_results:
-            # Lọc theo ngưỡng cosine similarity
-            if score >= semantic_threshold:
-                semantic_docs.append((score, text))
+        semantic_docs = [(score, text) for score, text in semantic_results if score >= semantic_threshold]
         
         print(f"Semantic: {len(semantic_docs)}/{len(semantic_results)} kết quả vượt ngưỡng {semantic_threshold}")
         
@@ -112,8 +108,5 @@ class Retriever:
         Wrapper method trả về None nếu không có tài liệu liên quan.
         """
         fused_docs, is_relevant = self.retrieve(query, **kwargs)
-        
-        if not is_relevant:
-            return None  # Không có tài liệu liên quan
-        
-        return fused_docs
+
+        return fused_docs if is_relevant else None
