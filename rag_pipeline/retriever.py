@@ -31,7 +31,7 @@ class Retriever:
         print("Đã khởi tạo BM25 index xong.")
     
     def retrieve(self, query, k_semantic=10, k_keyword=10, 
-                 semantic_threshold=0.3, bm25_threshold=1.0, 
+                 semantic_threshold=0.3, bm25_threshold=0.3, 
                  min_results=1):
         """
         Thực hiện tìm kiếm lai với ngưỡng lọc.
@@ -41,7 +41,7 @@ class Retriever:
             k_semantic: Số lượng kết quả semantic tối đa
             k_keyword: Số lượng kết quả keyword tối đa
             semantic_threshold: Ngưỡng cosine similarity (0-1). Mặc định 0.3
-            bm25_threshold: Ngưỡng BM25 score. Mặc định 1.0
+            bm25_threshold: Ngưỡng BM25 score động. Mặc định 0.3
             min_results: Số kết quả tối thiểu để coi là "tìm thấy tài liệu"
         
         Returns:
@@ -62,19 +62,25 @@ class Retriever:
         
         print(f"Semantic: {len(semantic_docs)}/{len(semantic_results)} kết quả vượt ngưỡng {semantic_threshold}")
         
-        # --- 2. Keyword Search (BM25) với ngưỡng ---
+        # --- 2. Keyword Search (BM25) với ngưỡng động ---
         tokenized_query = query.lower().split(" ")
         keyword_scores = self.bm25.get_scores(tokenized_query)
-        
+
         top_k_indices = np.argsort(keyword_scores)[::-1]
+
+        # Ngưỡng động dựa trên top1
+        top1 = keyword_scores[top_k_indices[0]]
+        dynamic_threshold = bm25_threshold * top1  # ví dụ: 0.3 * top1
+
         keyword_docs = []
         for i in top_k_indices:
-            if keyword_scores[i] >= bm25_threshold and len(keyword_docs) < k_keyword:
-                keyword_docs.append((keyword_scores[i], self.bm25_texts[i]))
-            elif len(keyword_docs) >= k_keyword:
+            score = keyword_scores[i]
+            if score >= dynamic_threshold and len(keyword_docs) < k_keyword:
+                keyword_docs.append((score, self.bm25_texts[i]))
+            else:
                 break
         
-        print(f"BM25: {len(keyword_docs)} kết quả vượt ngưỡng {bm25_threshold}")
+        print(f"BM25: {len(keyword_docs)} kết quả vượt ngưỡng động ({dynamic_threshold:.2f})")
         
         # --- 3. Fuse Results (Hợp nhất) ---
         fused_docs = []

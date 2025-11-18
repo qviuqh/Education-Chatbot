@@ -7,15 +7,17 @@ from rag_pipeline.vector_store import VectorStore
 from rag_pipeline.retriever import Retriever
 from rag_pipeline.generator import generate_answer_stream
 from rag_pipeline.prompt_builder import build_prompt
+from rag_pipeline.language_detector import LanguageDetector
 from rag_pipeline.reranker import Reranker
 
 import tempfile
 import json
 import yaml
 
-
 with open('config.yaml', 'r') as file:
     config = yaml.safe_load(file)
+
+lang_detector = LanguageDetector()
 
 # --- Config ---
 st.set_page_config(page_title="RAG Chat Local", layout="wide")
@@ -25,8 +27,8 @@ model_name = config['models']['embedder']  #"intfloat/multilingual-e5-base"
 llm_model = config['models']['generator']  #"qwen2:7b"
 
 retriever_dict = {
-    'semantic_threshold' : 0.3, 
-    'bm25_threshold' : 1.0,
+    'semantic_threshold' : config['thresholds']['similarity'], 
+    'bm25_threshold' : config['thresholds']['bm25'],
 }
 
 # --- Session ---
@@ -109,6 +111,7 @@ if query:
     if not os.path.exists(INDEX_PATH):
         st.warning("Bạn chưa tạo chỉ mục. Hãy tải tài liệu và bấm xử lý trước.")
     else:
+        language = lang_detector.detect(query)
         # 1. KHỞI TẠO CÁC MODULES
         # (Bạn có thể cache các đối tượng này bằng @st.cache_resource để tăng tốc)
         retriever = Retriever(INDEX_PATH, META_PATH) # Đây là Hybrid Retriever mới
@@ -137,7 +140,8 @@ if query:
 
         # 4. BUILD PROMPT
         # Chỉ sử dụng các context tốt nhất sau khi đã rerank
-        prompt = build_prompt(query, reranked_contexts)
+        
+        prompt = build_prompt(query, reranked_contexts, language)
 
         print("=== PROMPT ===")
         print(prompt)

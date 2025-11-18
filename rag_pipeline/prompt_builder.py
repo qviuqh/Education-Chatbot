@@ -1,11 +1,13 @@
-def build_prompt(question, contexts):
+def build_prompt(question, contexts, language: str=None):
     ctx_block = "\n\n---\n".join(contexts)
+    if not language: 
+        language = "English"
     return f"""
             [System]
             You are a helpful and knowledgeable **multilingual learning assistant** designed to help students understand their study materials.
             
             [Language Rules]
-            - Always respond in the same language as the question.
+            - Only respond in {language}.
             
             [Your Goals]
             - Use ONLY the information provided in the [Context] section below and the user's question to form your answer.
