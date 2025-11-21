@@ -25,7 +25,7 @@ def generate_answer_stream(
         )
         for chunk in stream_resp:
             yield chunk['message']['content']
-        
+    
     except Exception as e:
         yield f"Lỗi khi sinh phản hồi: {e}"
 
@@ -41,5 +41,6 @@ def generate_answer(
     try:
         resp = generate(model=model, prompt=prompt, stream=False)
         return resp.get("response", "")
+    
     except Exception as e:
         return f"Lỗi khi sinh phản hồi: {e}"

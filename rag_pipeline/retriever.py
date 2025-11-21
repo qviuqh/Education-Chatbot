@@ -30,9 +30,16 @@ class Retriever:
         self.bm25_texts = self.store.texts
         print("Đã khởi tạo BM25 index xong.")
     
-    def retrieve(self, query, k_semantic=10, k_keyword=10, 
-                 semantic_threshold=0.3, bm25_threshold=0.3, 
-                 min_results=1):
+    def retrieve(
+        self, 
+        query, 
+        k_semantic=10, 
+        k_keyword=10, 
+        semantic_threshold=0.3, 
+        bm25_threshold=0.3, 
+        min_results=1,
+        bm25_min_top1=1.0   # <<< NGƯỠNG TOP1 TỐI THIỂU CHO BM25
+    ):
         """
         Thực hiện tìm kiếm lai với ngưỡng lọc.
         
@@ -41,7 +48,9 @@ class Retriever:
             k_semantic: Số lượng kết quả semantic tối đa
             k_keyword: Số lượng kết quả keyword tối đa
             semantic_threshold: Ngưỡng cosine similarity (0-1). Mặc định 0.3
-            bm25_threshold: Ngưỡng BM25 score động. Mặc định 0.3
+            bm25_threshold: Hệ số để tạo ngưỡng động cho BM25 (vd 0.3 * top1)
+            bm25_min_top1: Ngưỡng tuyệt đối tối thiểu cho điểm BM25 top1.
+                           Nếu top1 < bm25_min_top1 => coi như BM25 không tìm được gì.
             min_results: Số kết quả tối thiểu để coi là "tìm thấy tài liệu"
         
         Returns:
@@ -58,25 +67,34 @@ class Retriever:
         
         print(f"Semantic: {len(semantic_docs)}/{len(semantic_results)} kết quả vượt ngưỡng {semantic_threshold}")
         
-        # --- 2. Keyword Search (BM25) với ngưỡng động ---
+        # --- 2. Keyword Search (BM25) với ngưỡng động + ngưỡng tuyệt đối ---
         tokenized_query = query.lower().split(" ")
         keyword_scores = self.bm25.get_scores(tokenized_query)
-
-        top_k_indices = np.argsort(keyword_scores)[::-1]
-
-        # Ngưỡng động dựa trên top1
-        top1 = keyword_scores[top_k_indices[0]]
-        dynamic_threshold = bm25_threshold * top1  # ví dụ: 0.3 * top1
-
-        keyword_docs = []
-        for i in top_k_indices:
-            score = keyword_scores[i]
-            if score >= dynamic_threshold and len(keyword_docs) < k_keyword:
-                keyword_docs.append((score, self.bm25_texts[i]))
-            else:
-                break
         
-        print(f"BM25: {len(keyword_docs)} kết quả vượt ngưỡng động ({dynamic_threshold:.2f})")
+        # Sắp xếp index theo score giảm dần
+        top_k_indices = np.argsort(keyword_scores)[::-1]
+        
+        # Điểm cao nhất (top1)
+        top1 = keyword_scores[top_k_indices[0]]
+        
+        keyword_docs = []
+        
+        # Nếu top1 quá thấp -> coi như không có tài liệu liên quan
+        if top1 <= 0 or top1 < bm25_min_top1:
+            print(f"BM25: top1={top1:.4f} < bm25_min_top1={bm25_min_top1:.4f} -> KHÔNG lấy kết quả BM25.")
+        else:
+            # Ngưỡng động dựa trên top1
+            dynamic_threshold = bm25_threshold * top1  # ví dụ: 0.3 * top1
+            print(f"BM25: top1={top1:.4f}, ngưỡng động={dynamic_threshold:.4f}")
+        
+            for i in top_k_indices:
+                score = keyword_scores[i]
+                # Dừng nếu score đã dưới ngưỡng hoặc đủ k_keyword
+                if score < dynamic_threshold or len(keyword_docs) >= k_keyword:
+                    break
+                keyword_docs.append((score, self.bm25_texts[i]))
+            
+            print(f"BM25: {len(keyword_docs)} kết quả vượt ngưỡng động ({dynamic_threshold:.4f})")
         
         # --- 3. Fuse Results (Hợp nhất) ---
         fused_docs = []
@@ -93,7 +111,7 @@ class Retriever:
                 fused_docs.append(doc)
                 seen_docs.add(doc)
         
-        # --- 4. Kiểm tra độ liên quan ---
+        # --- 4. Kiểm tra độ liên quan ---        
         is_relevant = len(fused_docs) >= min_results
         
         if not is_relevant:
@@ -108,5 +126,4 @@ class Retriever:
         Wrapper method trả về None nếu không có tài liệu liên quan.
         """
         fused_docs, is_relevant = self.retrieve(query, **kwargs)
-
         return fused_docs if is_relevant else None

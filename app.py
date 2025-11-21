@@ -46,7 +46,7 @@ st.sidebar.title("Cấu hình")
 #     index=0,
 # )
 # llm_model = st.sidebar.text_input("Local LLM (Ollama model)", value="qwen2:7b")
-top_k = st.sidebar.slider("Top-k", 1, 5, 3, 1)
+top_k = st.sidebar.slider("Top-k", 1, 10, 5, 1)
 
 # --- Upload zone ---
 st.title("StudyBot - Trợ lý học tập đa ngôn ngữ")
@@ -114,42 +114,39 @@ if (query := st.chat_input("Nhập câu hỏi...")):
         # (Bạn có thể cache các đối tượng này bằng @st.cache_resource để tăng tốc)
         retriever = Retriever(INDEX_PATH, META_PATH) # Đây là Hybrid Retriever mới
         reranker = Reranker() # Khởi tạo Reranker
-
+        
         # 2. RETRIEVE (Hybrid)
         # Lấy số lượng lớn hơn (ví dụ k * 3) để Reranker có nhiều lựa chọn
         hybrid_k = top_k * 3 
-
+        
         retriever_dict.update(**{'k_semantic': hybrid_k, 'k_keyword': hybrid_k})
-
+        
         with st.spinner("Đang tìm kiếm các tài liệu liên quan..."):
             # Retriever mới sẽ tự động tìm semantic và keyword
             fused_contexts = retriever.retrieve_with_validation(query, **retriever_dict)
-
+        
         if not fused_contexts:
             st.error("Không tìm thấy tài liệu nào.")
             st.stop() # Dừng xử lý nếu không có kết quả
-
+        
         # 3. RERANK
         # Lọc lại k_final kết quả tốt nhất từ danh sách hợp nhất
-        with st.spinner("Đã tìm thấy kết quả. Đang lọc và xếp hạng lại..."):
+        with st.spinner("Đang lọc và xếp hạng lại kết quả tìm kiếm..."):
             print(f"Đã tìm thấy {len(fused_contexts)} kết quả. Đang lọc và xếp hạng lại...")
             # top_k là biến từ thanh slider
-            reranked_contexts = reranker.rerank(query, fused_contexts, topn=top_k)
-
+            reranked_contexts = reranker.rerank(query, fused_contexts, topn=top_k, score_threshold=config['thresholds']['rerank_score'])
+            print(f"Lọc còn {len(reranked_contexts)} kết quả sau Rerank.")
+        
         # 4. BUILD PROMPT
         # Chỉ sử dụng các context tốt nhất sau khi đã rerank
-        
         prompt = build_prompt(query, reranked_contexts, language)
-
-        print("=== PROMPT ===")
-        print(prompt)
-
+        
         with st.chat_message("user"):
             st.markdown(query)
         st.session_state.chat_history.append(("user", query))
-
+        
         # 5. GENERATE (Streaming)
         with st.chat_message("assistant"):
             response = st.write_stream(generate_answer_stream(prompt, llm_model))
-
+        
         st.session_state.chat_history.append(("assistant", response))
