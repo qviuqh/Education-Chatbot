@@ -1,6 +1,3 @@
-"""
-Vector Paths - Quản lý đường dẫn vector store
-"""
 from pathlib import Path
 from typing import Tuple
 from config import settings

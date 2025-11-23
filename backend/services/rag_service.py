@@ -1,6 +1,3 @@
-"""
-RAG Service - Orchestration RAG: build index, answer question
-"""
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import Generator, Optional

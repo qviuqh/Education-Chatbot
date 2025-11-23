@@ -1,6 +1,3 @@
-"""
-Document Service - Logic xử lý tài liệu
-"""
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, UploadFile
 from pathlib import Path

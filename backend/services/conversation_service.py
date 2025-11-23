@@ -1,6 +1,3 @@
-"""
-Conversation Service - Logic xử lý conversation
-"""
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import List

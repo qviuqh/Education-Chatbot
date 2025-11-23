@@ -1,6 +1,3 @@
-"""
-Subject Service - Logic xử lý môn học
-"""
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import List
