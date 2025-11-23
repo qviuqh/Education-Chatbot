@@ -11,7 +11,7 @@ models:
 thresholds:
   similarity: 0.8
   bm25: 0.25
-  rerank_score: 0.65
+  rerank_score: 0.5
 
 params:
   chunk_size: 1000
