@@ -25,11 +25,35 @@ INDEX_PATH = config['data']['host']  # "./data/vectordb/index.faiss"
 META_PATH = config['data']['chunks']  # "./data/vectordb/chunks.json"
 model_name = config['models']['embedder']  #"intfloat/multilingual-e5-base"
 llm_model = config['models']['generator']  #"qwen2:7b"
+reranker_model = config['models']['reranker']
 
 retriever_dict = {
-    'semantic_threshold' : config['thresholds']['similarity'], 
-    'bm25_threshold' : config['thresholds']['bm25'],
+    'semantic_threshold': config['thresholds']['similarity'],
+    'bm25_threshold': config['thresholds']['bm25'],
 }
+
+
+@st.cache_resource(show_spinner=False)
+def get_embedder(name=model_name):
+    return Embedder(name)
+
+
+@st.cache_resource(show_spinner=False)
+def get_vector_store(embedder, index_path=INDEX_PATH, meta_path=META_PATH):
+    store = VectorStore(embedder.model.get_sentence_embedding_dimension(), index_path, meta_path)
+    store.load()
+    return store
+
+
+@st.cache_resource(show_spinner=False)
+def get_reranker(name=reranker_model):
+    return Reranker(name)
+
+
+@st.cache_resource(show_spinner=False)
+def get_retriever(embedder, store):
+    return Retriever(INDEX_PATH, META_PATH, embedder=embedder, store=store)
+
 
 # --- Session ---
 if "index_built" not in st.session_state:
@@ -62,9 +86,8 @@ if st.button("Xử lý & tạo chỉ mục"):
         st.warning("Hãy tải lên ít nhất một tài liệu.")
     else:
         with st.spinner("Đang xử lý tài liệu..."):
-            # Import hàm load mới
             tmp_dir = tempfile.mkdtemp()
-            docs = [] # Khởi tạo danh sách docs
+            docs = []
 
             for f in uploaded_files:
                 temp_path = os.path.join(tmp_dir, f.name)
@@ -86,13 +109,17 @@ if st.button("Xử lý & tạo chỉ mục"):
             texts = [c.page_content for c in chunks]
 
             # 3) Embedding
-            embedder = Embedder(model_name)
+            embedder = get_embedder(model_name)
             embs = embedder.encode(texts)
 
             # 4) Build FAISS
             store = VectorStore(embedder.model.get_sentence_embedding_dimension(), INDEX_PATH, META_PATH)
             store.add(embs, texts)
             store.save()
+
+            # Làm mới cache retriever/vector store sau khi có dữ liệu mới
+            get_vector_store.clear()
+            get_retriever.clear()
 
             st.session_state.index_built = True
             st.success("Hoàn tất xử lý tài liệu!")
@@ -105,48 +132,54 @@ for role, msg in st.session_state.chat_history:
     with st.chat_message(role):
         st.markdown(msg)
 
-if (query := st.chat_input("Nhập câu hỏi...")):
+if query := st.chat_input("Nhập câu hỏi..."):
     if not os.path.exists(INDEX_PATH):
         st.warning("Bạn chưa tạo chỉ mục. Hãy tải tài liệu và bấm xử lý trước.")
     else:
         language = lang_detector.detect(query)
-        # 1. KHỞI TẠO CÁC MODULES
-        # (Bạn có thể cache các đối tượng này bằng @st.cache_resource để tăng tốc)
-        retriever = Retriever(INDEX_PATH, META_PATH) # Đây là Hybrid Retriever mới
-        reranker = Reranker() # Khởi tạo Reranker
-        
+        # 1. KHỞI TẠO CÁC MODULES (đã cache để tránh load lại nhiều lần)
+        embedder = get_embedder(model_name)
+        store = get_vector_store(embedder)
+        retriever = get_retriever(embedder, store)  # Hybrid Retriever
+        reranker = get_reranker()  # Khởi tạo Reranker dùng cache
+
         # 2. RETRIEVE (Hybrid)
         # Lấy số lượng lớn hơn (ví dụ k * 3) để Reranker có nhiều lựa chọn
-        hybrid_k = top_k * 3 
-        
+        hybrid_k = top_k * 3
+
         retriever_dict.update(**{'k_semantic': hybrid_k, 'k_keyword': hybrid_k})
-        
+
         with st.spinner("Đang tìm kiếm các tài liệu liên quan..."):
             # Retriever mới sẽ tự động tìm semantic và keyword
             fused_contexts = retriever.retrieve_with_validation(query, **retriever_dict)
-        
+
         if not fused_contexts:
             st.error("Không tìm thấy tài liệu nào.")
-            st.stop() # Dừng xử lý nếu không có kết quả
-        
+            st.stop()  # Dừng xử lý nếu không có kết quả
+
         # 3. RERANK
         # Lọc lại k_final kết quả tốt nhất từ danh sách hợp nhất
         with st.spinner("Đang lọc và xếp hạng lại kết quả tìm kiếm..."):
             print(f"Đã tìm thấy {len(fused_contexts)} kết quả. Đang lọc và xếp hạng lại...")
             # top_k là biến từ thanh slider
-            reranked_contexts = reranker.rerank(query, fused_contexts, topn=top_k, score_threshold=config['thresholds']['rerank_score'])
+            reranked_contexts = reranker.rerank(
+                query,
+                fused_contexts,
+                topn=top_k,
+                score_threshold=config['thresholds']['rerank_score'],
+            )
             print(f"Lọc còn {len(reranked_contexts)} kết quả sau Rerank.")
-        
+
         # 4. BUILD PROMPT
         # Chỉ sử dụng các context tốt nhất sau khi đã rerank
         prompt = build_prompt(query, reranked_contexts, language)
-        
+
         with st.chat_message("user"):
             st.markdown(query)
         st.session_state.chat_history.append(("user", query))
-        
+
         # 5. GENERATE (Streaming)
         with st.chat_message("assistant"):
             response = st.write_stream(generate_answer_stream(prompt, llm_model))
-        
+
         st.session_state.chat_history.append(("assistant", response))
