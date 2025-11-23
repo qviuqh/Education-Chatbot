@@ -16,5 +16,4 @@ thresholds:
 params:
   chunk_size: 1000
   chunk_overlap: 120
-  top_k: 5
   temperature: 0.2

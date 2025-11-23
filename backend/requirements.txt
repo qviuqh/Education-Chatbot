@@ -1,0 +1,39 @@
+streamlit>=1.38
+langchain 
+langchain-core 
+ollama
+langchain-community
+langchain_text_splitters
+faiss-cpu>=1.8.0
+pypdf>=4.2.0
+tiktoken>=0.7.0
+python-dotenv>=1.0.1
+transformers==4.55.0
+torch==2.8.0
+rank_bm25
+langdetect
+
+# FastAPI và server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.12.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Document Processing
+pypdf==3.17.1
+python-docx==1.1.0
+
+# Utilities
+python-dotenv==1.0.0
