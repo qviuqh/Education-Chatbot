@@ -39,8 +39,8 @@ def get_embedder(name=model_name):
 
 
 @st.cache_resource(show_spinner=False)
-def get_vector_store(embedder, index_path=INDEX_PATH, meta_path=META_PATH):
-    store = VectorStore(embedder.model.get_sentence_embedding_dimension(), index_path, meta_path)
+def get_vector_store(_embedder, index_path=INDEX_PATH, meta_path=META_PATH):
+    store = VectorStore(_embedder.model.get_sentence_embedding_dimension(), index_path, meta_path)
     store.load()
     return store
 
@@ -51,8 +51,8 @@ def get_reranker(name=reranker_model):
 
 
 @st.cache_resource(show_spinner=False)
-def get_retriever(embedder, store):
-    return Retriever(INDEX_PATH, META_PATH, embedder=embedder, store=store)
+def get_retriever(_embedder, _store):
+    return Retriever(INDEX_PATH, META_PATH, embedder=_embedder, store=_store)
 
 
 # --- Session ---
@@ -64,12 +64,6 @@ if "chat_history" not in st.session_state:
 
 # --- Sidebar ---
 st.sidebar.title("Cấu hình")
-# model_name = st.sidebar.selectbox(
-#     "Embedding model",
-#     ["intfloat/multilingual-e5-base", "intfloat/multilingual-e5-small"],
-#     index=0,
-# )
-# llm_model = st.sidebar.text_input("Local LLM (Ollama model)", value="qwen2:7b")
 top_k = st.sidebar.slider("Top-k", 1, 10, 5, 1)
 
 # --- Upload zone ---
@@ -105,7 +99,7 @@ if st.button("Xử lý & tạo chỉ mục"):
                 st.stop()
 
             # 2) Chunk (Hàm này giờ sẽ đọc config)
-            chunks = chunk_documents(docs)
+            chunks = chunk_documents(docs, chunk_size=config['params']['chunk_size'], overlap=config['params']['chunk_overlap'])
             texts = [c.page_content for c in chunks]
 
             # 3) Embedding
