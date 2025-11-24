@@ -8,9 +8,9 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Optional
 
-from db import get_db
-from config import settings
-import models
+from .db import get_db
+from .config import settings
+from . import models
 
 # OAuth2 scheme để lấy token từ header
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")

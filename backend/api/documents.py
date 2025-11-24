@@ -5,11 +5,10 @@ from fastapi import APIRouter, Depends, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 
-import schemas
-import models
-from db import get_db
-from deps import get_current_user, get_user_subject
-from services import document_service
+from .. import schemas, models
+from ..db import get_db
+from ..deps import get_current_user, get_user_subject
+from ..services import document_service
 
 router = APIRouter(tags=["Documents"])
 

@@ -1,3 +1,7 @@
+"""
+Backend Configuration
+Chứa các biến cấu hình toàn hệ thống
+"""
 from pydantic_settings import BaseSettings
 from pathlib import Path
 
@@ -22,17 +26,27 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173"]
     
-    # Embedder Settings
-    EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    EMBEDDING_DIMENSION: int = 384
+    # Embedder Settings (compatible with config.yaml)
+    EMBEDDING_MODEL: str = "intfloat/multilingual-e5-base"
+    EMBEDDING_DIMENSION: int = 768  # multilingual-e5-base dimension
     
-    # LLM Settings
-    LLM_MODEL: str = "gpt-3.5-turbo"  # Hoặc model khác bạn dùng
-    LLM_API_KEY: str = ""  # Đọc từ .env
+    # LLM Settings (sử dụng Ollama như trong code của bạn)
+    LLM_MODEL: str = "qwen2:7b"  # Model mặc định cho Ollama
+    OLLAMA_BASE_URL: str = "http://localhost:11434"  # Ollama API endpoint
     
     # Retriever Settings
     TOP_K_RETRIEVE: int = 5
-    SIMILARITY_THRESHOLD: float = 0.3
+    SIMILARITY_THRESHOLD: float = 0.85
+    
+    BM25_THRESHOLD: float = 0.3
+    
+    # Reranker Settings (compatible with config.yaml)
+    RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RERANKER_SCORE: float = 0.5
+    USE_RERANKER: bool = True  # Mặc định tắt, bật khi cần
+    
+    # Generator Settings
+    GENERATOR_TEMPERATURE: float = 0.1
     
     class Config:
         env_file = ".env"

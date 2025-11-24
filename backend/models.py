@@ -4,7 +4,7 @@ SQLAlchemy Models - Định nghĩa cấu trúc bảng
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from db import Base
+from .db import Base
 
 
 class User(Base):

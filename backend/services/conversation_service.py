@@ -2,10 +2,9 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import List
 
-import models
-import schemas
-from services.vector_paths import get_vector_paths
-from config import settings
+from .. import models, schemas
+from .vector_paths import get_vector_paths
+from ..config import settings
 
 
 def create_conversation(

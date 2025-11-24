@@ -1,23 +1,12 @@
 import numpy as np
-import yaml
-from rag_pipeline.embedder import Embedder
-from rag_pipeline.vector_store import VectorStore
+from .embedder import Embedder
+from .vector_store import VectorStore
 from rank_bm25 import BM25Okapi
 from langchain_core.documents import Document
 
-with open('config.yaml', 'r') as file:
-    config = yaml.safe_load(file)
-
 
 class Retriever:
-    def __init__(
-        self,
-        store_path=config['data']['host'],
-        meta_path=config['data']['chunks'],
-        embedder=None,
-        store=None,
-    ):
-
+    def __init__(self, store_path: str, meta_path: str, embedder=None, store=None,):
         # 1. Load Semantic (FAISS) components (có thể dùng cache)
         self.embedder = embedder if embedder is not None else Embedder()
         self.store = (

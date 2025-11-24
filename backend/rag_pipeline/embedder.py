@@ -1,7 +1,7 @@
 from sentence_transformers import SentenceTransformer
 
 class Embedder:
-    def __init__(self, model_name="intfloat/multilingual-e5-base"):
+    def __init__(self, model_name:str="intfloat/multilingual-e5-base"):
         self.model = SentenceTransformer(model_name)
     
     def encode(self, texts, prefix="passage"):

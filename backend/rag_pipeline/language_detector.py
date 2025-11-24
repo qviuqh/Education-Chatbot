@@ -1,8 +1,4 @@
 from langdetect import detect
-import yaml
-
-with open('config.yaml', 'r') as file:
-    config = yaml.safe_load(file)
 
 class LanguageDetector:
     def __init__(self):

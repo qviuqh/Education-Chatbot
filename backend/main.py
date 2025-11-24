@@ -6,11 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from config import settings
-from db import init_db
+from .config import settings
+from .db import init_db
 
 # Import routers
-from api import auth, subjects, documents, conversations, chat
+from .api import auth, subjects, documents, conversations, chat
 
 
 @asynccontextmanager

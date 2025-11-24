@@ -5,11 +5,10 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 
-import schemas
-import models
-from db import get_db
-from deps import get_current_user, get_user_subject
-from services import subject_service
+from .. import schemas, models
+from ..db import get_db
+from ..deps import get_current_user, get_user_subject
+from ..services import subject_service
 
 router = APIRouter(prefix="/subjects", tags=["Subjects"])
 

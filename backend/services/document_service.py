@@ -5,8 +5,8 @@ from typing import List
 import shutil
 import os
 
-import models
-from config import settings
+from .. import models
+from ..config import settings
 
 
 def get_upload_path(user_id: int, subject_id: int) -> Path:

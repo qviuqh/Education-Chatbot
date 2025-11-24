@@ -6,11 +6,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import AsyncGenerator
 
-import schemas
-import models
-from db import get_db
-from deps import get_current_user, get_user_conversation
-from services import conversation_service, rag_service
+from .. import schemas, models
+from ..db import get_db
+from ..deps import get_current_user, get_user_conversation
+from ..services import conversation_service, rag_service
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 

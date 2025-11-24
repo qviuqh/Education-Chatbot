@@ -1,14 +1,10 @@
 from ollama import chat, generate
 import sys
-import yaml
-
-with open('config.yaml', 'r') as file:
-    config = yaml.safe_load(file)
 
 def generate_answer_stream(
     prompt: str, 
-    model: str = config['models']['generator'], 
-    temperature: float = config['params']['temperature']
+    model: str, 
+    temperature: float = 0.2
 ):
     """
     Sinh câu trả lời từ Ollama và yield từng token (streaming).
@@ -31,7 +27,7 @@ def generate_answer_stream(
 
 def generate_answer(
     prompt: str, 
-    model: str = config['models']['generator'], 
+    model: str, 
     ):
     """
     Sinh câu trả lời từ Ollama.

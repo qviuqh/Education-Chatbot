@@ -1,12 +1,8 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-import yaml
-
-with open('config.yaml', 'r') as file:
-    config = yaml.safe_load(file)
 
 class Reranker:
-    def __init__(self, model_name=config['models']['reranker'], device=None):
+    def __init__(self, model_name: str, device=None):
         self.tok = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
     
