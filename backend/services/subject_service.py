@@ -2,8 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from typing import List
 
-import models
-import schemas
+from .. import models, schemas
 
 
 def create_subject(

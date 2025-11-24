@@ -3,9 +3,9 @@ Database Initialization Script
 Chạy file này để tạo database và test data
 """
 from sqlalchemy.orm import Session
-from db import engine, Base, SessionLocal
-from services.user_service import get_password_hash
-import models
+from .db import engine, Base, SessionLocal
+from .services.user_service import get_password_hash
+from . import models
 
 
 def init_database():

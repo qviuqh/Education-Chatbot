@@ -1,217 +1,378 @@
 """
 RAG Pipeline - Kết nối các components thành pipeline hoàn chỉnh
 """
-from typing import Generator, List, Dict, Any
-from config import settings
+from typing import Generator, List, Dict, Any, Optional
+from ..config import settings
 
-# Import các components (cần implement)
-# from .embedder import Embedder
-# from .vector_store import VectorStore
-# from .retriever import Retriever
-# from .generator import Generator
-# from .language_detector import LanguageDetector
-# from .prompt_builder import PromptBuilder
-# from .reranker import Reranker
+# Import các components
+from .embedder import Embedder
+from .vector_store import VectorStore
+from .retriever import Retriever
+from .generator import generate_answer, generate_answer_stream
+from .language_detector import LanguageDetector
+from .prompt_builder import build_prompt
+from .reranker import Reranker
 
 
-class Retriever:
+class RAGRetriever:
     """
-    Retriever sử dụng Vector Store để tìm kiếm context
+    Wrapper class cho Retriever để sử dụng trong pipeline
     """
-    def __init__(self, index_path: str, meta_path: str):
+    def __init__(self, index_path: str, meta_path: str, embedder: Embedder = None):
         """
         Initialize retriever với saved vector store
         
         Args:
             index_path: Đường dẫn file .index (FAISS)
             meta_path: Đường dẫn file .json (text chunks)
+            embedder: Embedder instance (optional, sẽ tạo mới nếu None)
         """
         self.index_path = index_path
         self.meta_path = meta_path
         
-        # TODO: Load embedder
-        # self.embedder = Embedder(model_name=settings.EMBEDDING_MODEL)
+        # Khởi tạo embedder nếu chưa có
+        if embedder is None:
+            self.embedder = Embedder(model_name=settings.EMBEDDING_MODEL)
+        else:
+            self.embedder = embedder
         
-        # TODO: Load vector store
-        # self.vector_store = VectorStore.load(index_path, meta_path)
-        pass
+        # Khởi tạo retriever với embedder và store
+        self.retriever = Retriever(
+            store_path=index_path,
+            meta_path=meta_path,
+            embedder=self.embedder
+        )
+        
+        print(f"✅ Retriever initialized with {len(self.retriever.store.texts)} chunks")
     
-    def retrieve(self, question: str, top_k: int = None) -> List[Dict[str, Any]]:
+    def retrieve(
+        self, 
+        question: str, 
+        k_semantic: int = None,
+        k_keyword: int = None,
+        use_validation: bool = True
+    ) -> Optional[List[str]]:
         """
         Retrieve relevant contexts cho câu hỏi
         
         Args:
             question: Câu hỏi của user
-            top_k: Số lượng contexts cần lấy
+            k_semantic: Số lượng contexts từ semantic search
+            k_keyword: Số lượng contexts từ keyword search
+            use_validation: Có validate relevance không
             
         Returns:
-            List[Dict]: Danh sách contexts với score
-                [{"text": "...", "score": 0.85}, ...]
+            List[str]: Danh sách text contexts, hoặc None nếu không tìm thấy
         """
-        if top_k is None:
-            top_k = settings.TOP_K_RETRIEVE
+        if k_semantic is None:
+            k_semantic = settings.TOP_K_RETRIEVE
         
-        # TODO: Implement retrieval
-        # 1. Embed câu hỏi
-        # query_embedding = self.embedder.encode([question], prefix="query")[0]
+        if k_keyword is None:
+            k_keyword = settings.TOP_K_RETRIEVE
         
-        # 2. Search trong vector store
-        # results = self.vector_store.search(query_embedding, top_k=top_k)
-        
-        # 3. Filter theo threshold
-        # contexts = [
-        #     {"text": r["text"], "score": r["score"]}
-        #     for r in results
-        #     if r["score"] >= settings.SIMILARITY_THRESHOLD
-        # ]
-        
-        # PLACEHOLDER
-        contexts = [
-            {"text": "This is a placeholder context.", "score": 0.9}
-        ]
-        
-        return contexts
+        try:
+            if use_validation:
+                # Dùng retrieve_with_validation - trả về None nếu không relevant
+                contexts = self.retriever.retrieve_with_validation(
+                    query=question,
+                    k_semantic=k_semantic,
+                    k_keyword=k_keyword,
+                    semantic_threshold=settings.SIMILARITY_THRESHOLD,
+                    bm25_threshold=settings.BM25_THRESHOLD,
+                    min_results=1,
+                    bm25_min_top1=1.0
+                )
+            else:
+                # Retrieve bình thường
+                contexts, is_relevant = self.retriever.retrieve(
+                    query=question,
+                    k_semantic=k_semantic,
+                    k_keyword=k_keyword,
+                    semantic_threshold=settings.SIMILARITY_THRESHOLD,
+                    bm25_threshold=settings.BM25_THRESHOLD,
+                    min_results=1,
+                    bm25_min_top1=1.0
+                )
+                if not is_relevant:
+                    contexts = None
+            
+            return contexts
+            
+        except Exception as e:
+            print(f"❌ Error in retrieval: {e}")
+            return None
 
 
-def create_retriever(index_path: str, meta_path: str) -> Retriever:
+def create_retriever(index_path: str, meta_path: str, embedder: Embedder = None) -> RAGRetriever:
     """
     Factory function để tạo Retriever
+    
+    Args:
+        index_path: Đường dẫn file .index
+        meta_path: Đường dẫn file .json
+        embedder: Embedder instance (optional)
+        
+    Returns:
+        RAGRetriever instance
     """
-    return Retriever(index_path, meta_path)
+    return RAGRetriever(index_path, meta_path, embedder)
 
 
 def answer_question_with_store(
     question: str,
-    retriever: Retriever,
-    streaming: bool = False
+    retriever: RAGRetriever,
+    streaming: bool = False,
+    use_reranker: bool = False,
+    reranker_top_k: int = 3,
+    detect_language: bool = True,
+    model: str = None,
+    temperature: float = None
 ) -> str | Generator[str, None, None]:
     """
     RAG Pipeline hoàn chỉnh: Retrieve + Generate
     
     Args:
         question: Câu hỏi của user
-        retriever: Retriever instance
+        retriever: RAGRetriever instance
+        streaming: True nếu muốn stream response
+        use_reranker: Có dùng reranker không
+        reranker_top_k: Số contexts sau rerank
+        detect_language: Có tự động detect ngôn ngữ không
+        model: LLM model name (override config)
+        temperature: Temperature cho generation (override config)
+        
+    Returns:
+        str nếu streaming=False
+        Generator[str] nếu streaming=True
+    """
+    print(f"\n{'='*60}")
+    print(f"📝 Question: {question}")
+    print(f"{'='*60}\n")
+    
+    # Step 1: Retrieve contexts
+    print("🔍 Step 1: Retrieving contexts...")
+    contexts = retriever.retrieve(
+        question=question,
+        k_semantic=settings.TOP_K_RETRIEVE,
+        k_keyword=settings.TOP_K_RETRIEVE,
+        use_validation=True
+    )
+    
+    # Kiểm tra contexts
+    if not contexts or len(contexts) == 0:
+        print("⚠️  No relevant contexts found")
+        no_context_answer = (
+            "Xin lỗi, tôi không tìm thấy thông tin liên quan trong tài liệu "
+            "để trả lời câu hỏi này. Vui lòng thử hỏi theo cách khác hoặc "
+            "kiểm tra lại tài liệu đã upload."
+        )
+        
+        if streaming:
+            def no_context_generator():
+                for char in no_context_answer:
+                    yield char
+            return no_context_generator()
+        else:
+            return no_context_answer
+    
+    print(f"✅ Found {len(contexts)} contexts")
+    
+    # Step 2: Rerank contexts (optional)
+    if use_reranker and len(contexts) > reranker_top_k:
+        print(f"\n🎯 Step 2: Reranking contexts (top {reranker_top_k})...")
+        try:
+            reranker = Reranker()
+            contexts = reranker.rerank(
+                query=question,
+                candidates=contexts,
+                topn=reranker_top_k,
+                score_threshold=0.3,
+                return_scores=False
+            )
+            print(f"✅ Reranked to {len(contexts)} contexts")
+        except Exception as e:
+            print(f"⚠️  Reranking failed: {e}. Using original contexts.")
+    else:
+        print(f"\n⏭️  Step 2: Skipping reranker")
+    
+    # Step 3: Detect language
+    language = "Vietnamese"  # Default
+    if detect_language:
+        print(f"\n🌍 Step 3: Detecting language...")
+        try:
+            detector = LanguageDetector()
+            language = detector.detect(question)
+            print(f"✅ Detected language: {language}")
+        except Exception as e:
+            print(f"⚠️  Language detection failed: {e}. Using default: Vietnamese")
+    else:
+        print(f"\n⏭️  Step 3: Using default language: Vietnamese")
+    
+    # Step 4: Build prompt
+    print(f"\n📋 Step 4: Building prompt...")
+    prompt = build_prompt(
+        question=question,
+        contexts=contexts,
+        language=language
+    )
+    print(f"✅ Prompt built ({len(prompt)} chars)")
+    
+    # Step 5: Generate answer
+    print(f"\n🤖 Step 5: Generating answer...")
+    print(f"   Model: {model or 'default (from config)'}")
+    print(f"   Streaming: {streaming}")
+    
+    try:
+        if streaming:
+            print("✅ Streaming response started\n")
+            if model:
+                return generate_answer_stream(prompt, model=model, temperature=temperature or 0.7)
+            else:
+                return generate_answer_stream(prompt, temperature=temperature or 0.7)
+        else:
+            if model:
+                answer = generate_answer(prompt, model=model)
+            else:
+                answer = generate_answer(prompt)
+            print(f"✅ Answer generated ({len(answer)} chars)\n")
+            return answer
+            
+    except Exception as e:
+        print(f"❌ Generation failed: {e}")
+        error_message = (
+            "Xin lỗi, đã có lỗi xảy ra khi tạo câu trả lời. "
+            "Vui lòng thử lại sau."
+        )
+        
+        if streaming:
+            def error_generator():
+                yield error_message
+            return error_generator()
+        else:
+            return error_message
+
+
+def answer_question_simple(
+    question: str,
+    retriever: RAGRetriever,
+    streaming: bool = False
+) -> str | Generator[str, None, None]:
+    """
+    Simplified RAG pipeline - không dùng reranker, language detection đơn giản
+    
+    Args:
+        question: Câu hỏi của user
+        retriever: RAGRetriever instance
         streaming: True nếu muốn stream response
         
     Returns:
         str nếu streaming=False
         Generator[str] nếu streaming=True
     """
-    # Step 1: Retrieve contexts
-    contexts = retriever.retrieve(question)
-    
-    if not contexts:
-        no_context_answer = "Xin lỗi, tôi không tìm thấy thông tin liên quan trong tài liệu để trả lời câu hỏi này."
-        
-        if streaming:
-            def no_context_generator():
-                yield no_context_answer
-            return no_context_generator()
-        else:
-            return no_context_answer
-    
-    # Step 2: Detect language (optional)
-    # TODO: Implement language detection
-    # language_detector = LanguageDetector()
-    # language = language_detector.detect(question)
-    language = "vi"  # Default Vietnamese
-    
-    # Step 3: Build prompt
-    # TODO: Implement prompt builder
-    # prompt_builder = PromptBuilder()
-    # prompt = prompt_builder.build(
-    #     question=question,
-    #     contexts=contexts,
-    #     language=language
-    # )
-    
-    # PLACEHOLDER prompt
-    context_text = "\n\n".join([c["text"] for c in contexts])
-    prompt = f"""Dựa trên thông tin sau:
-
-{context_text}
-
-Câu hỏi: {question}
-
-Hãy trả lời câu hỏi dựa trên thông tin được cung cấp. Nếu không tìm thấy thông tin liên quan, hãy nói "Tôi không tìm thấy thông tin để trả lời câu hỏi này trong tài liệu."
-"""
-    
-    # Step 4: Generate answer
-    # TODO: Implement generator
-    # generator = Generator(model_name=settings.LLM_MODEL)
-    
-    if streaming:
-        # TODO: Implement streaming generation
-        # return generator.generate_stream(prompt)
-        
-        # PLACEHOLDER streaming
-        def placeholder_stream():
-            answer = "Đây là câu trả lời mẫu. Bạn cần implement Generator để có câu trả lời thực."
-            for char in answer:
-                yield char
-        
-        return placeholder_stream()
-    else:
-        # TODO: Implement normal generation
-        # answer = generator.generate(prompt)
-        
-        # PLACEHOLDER
-        answer = "Đây là câu trả lời mẫu. Bạn cần implement Generator để có câu trả lời thực."
-        
-        return answer
+    return answer_question_with_store(
+        question=question,
+        retriever=retriever,
+        streaming=streaming,
+        use_reranker=False,
+        detect_language=True
+    )
 
 
-def answer_question_with_reranking(
+def answer_question_advanced(
     question: str,
-    retriever: Retriever,
+    retriever: RAGRetriever,
     streaming: bool = False,
-    use_reranker: bool = True
+    reranker_top_k: int = 3
 ) -> str | Generator[str, None, None]:
     """
-    Advanced RAG với reranking
+    Advanced RAG pipeline - có reranker và language detection
     
-    Similar to answer_question_with_store nhưng có thêm bước rerank
-    """
-    # Step 1: Retrieve nhiều contexts hơn
-    contexts = retriever.retrieve(question, top_k=settings.TOP_K_RETRIEVE * 2)
-    
-    if not contexts:
-        return answer_question_with_store(question, retriever, streaming)
-    
-    # Step 2: Rerank contexts (optional)
-    if use_reranker and len(contexts) > settings.TOP_K_RETRIEVE:
-        # TODO: Implement reranker
-        # reranker = Reranker()
-        # contexts = reranker.rerank(question, contexts, top_k=settings.TOP_K_RETRIEVE)
+    Args:
+        question: Câu hỏi của user
+        retriever: RAGRetriever instance
+        streaming: True nếu muốn stream response
+        reranker_top_k: Số contexts sau rerank
         
-        # PLACEHOLDER: Chỉ lấy top k
-        contexts = contexts[:settings.TOP_K_RETRIEVE]
-    
-    # Step 3-4: Giống answer_question_with_store
-    # ... (rest similar to above)
-    
-    return answer_question_with_store(question, retriever, streaming)
+    Returns:
+        str nếu streaming=False
+        Generator[str] nếu streaming=True
+    """
+    return answer_question_with_store(
+        question=question,
+        retriever=retriever,
+        streaming=streaming,
+        use_reranker=True,
+        reranker_top_k=reranker_top_k,
+        detect_language=True
+    )
 
 
 # Utility functions
-def format_contexts(contexts: List[Dict[str, Any]]) -> str:
+def format_contexts_for_display(contexts: List[str], max_length: int = 200) -> List[str]:
     """
-    Format contexts thành string để đưa vào prompt
+    Format contexts để hiển thị (truncate nếu quá dài)
+    
+    Args:
+        contexts: Danh sách contexts
+        max_length: Độ dài tối đa mỗi context
+        
+    Returns:
+        List contexts đã format
     """
     formatted = []
     for i, ctx in enumerate(contexts, 1):
-        formatted.append(f"[Đoạn {i}]:\n{ctx['text']}\n")
+        if len(ctx) > max_length:
+            ctx_display = ctx[:max_length] + "..."
+        else:
+            ctx_display = ctx
+        formatted.append(f"[Context {i}]: {ctx_display}")
     
-    return "\n".join(formatted)
+    return formatted
 
 
-def get_source_info(contexts: List[Dict[str, Any]]) -> List[str]:
+def get_context_sources(contexts: List[str]) -> Dict[str, Any]:
     """
-    Lấy thông tin nguồn từ contexts (nếu có)
-    """
-    sources = []
-    for ctx in contexts:
-        if "source" in ctx:
-            sources.append(ctx["source"])
+    Trích xuất thông tin nguồn từ contexts (nếu có)
     
-    return list(set(sources))  # Remove duplicates
+    Args:
+        contexts: Danh sách contexts
+        
+    Returns:
+        Dict chứa thông tin sources
+    """
+    return {
+        "total_contexts": len(contexts),
+        "total_chars": sum(len(c) for c in contexts),
+        "avg_length": sum(len(c) for c in contexts) / len(contexts) if contexts else 0
+    }
+
+
+def validate_retriever_setup(index_path: str, meta_path: str) -> bool:
+    """
+    Kiểm tra xem retriever có thể được khởi tạo không
+    
+    Args:
+        index_path: Đường dẫn file .index
+        meta_path: Đường dẫn file .json
+        
+    Returns:
+        True nếu hợp lệ, False nếu không
+    """
+    import os
+    
+    if not os.path.exists(index_path):
+        print(f"❌ Index file not found: {index_path}")
+        return False
+    
+    if not os.path.exists(meta_path):
+        print(f"❌ Meta file not found: {meta_path}")
+        return False
+    
+    try:
+        # Thử load để kiểm tra
+        retriever = create_retriever(index_path, meta_path)
+        print("✅ Retriever validation successful")
+        return True
+    except Exception as e:
+        print(f"❌ Retriever validation failed: {e}")
+        return False

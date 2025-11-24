@@ -1,14 +1,9 @@
 import faiss
 import json
 import numpy as np
-import yaml
-
-with open('config.yaml', 'r') as file:
-    config = yaml.safe_load(file)
-
 
 class VectorStore:
-    def __init__(self, dim, path=config['data']['host'], meta_path=config['data']['chunks']):
+    def __init__(self, dim, path: str, meta_path: str):
         self.path = path
         self.meta_path = meta_path
         self.index = faiss.IndexFlatIP(dim)

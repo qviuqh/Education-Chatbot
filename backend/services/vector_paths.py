@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Tuple
-from config import settings
+from ..config import settings
 
 
 def get_vector_paths(
