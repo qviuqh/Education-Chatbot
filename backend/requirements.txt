@@ -4,7 +4,10 @@ langchain-core
 ollama
 langchain-community
 langchain_text_splitters
+<<<<<<< HEAD
 sentence_transformers
+=======
+>>>>>>> c3fe5148dce5a931e993b1738e58d1c6569ad559
 faiss-cpu>=1.8.0
 pypdf>=4.2.0
 tiktoken>=0.7.0
