@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Plus, Menu, X, Book, FileText, LogOut, Sun, Moon, User, Upload, Loader2, AlertCircle } from 'lucide-react';
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 // --- LUXURY DARK THEME CONSTANTS ---
 const THEME = {
@@ -27,50 +27,68 @@ const AuthContext = React.createContext(null);
 const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // ← Thêm loading state
 
   useEffect(() => {
     if (token) {
       fetchUserProfile();
+    } else {
+      setIsLoading(false); // ← Không có token thì stop loading
     }
   }, [token]);
 
   const fetchUserProfile = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
+      
       if (response.ok) {
         const data = await response.json();
         setUser(data);
       } else {
-        logout(); // Token invalid
+        logout();
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
+      logout();
+    } finally {
+      setIsLoading(false); // ← Set loading false sau khi xong
     }
   };
 
   const login = async (email, password) => {
     try {
-      // Sử dụng endpoint login/json như định nghĩa trong API
       const response = await fetch(`${API_BASE_URL}/auth/login/json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setToken(data.access_token);
-        localStorage.setItem('token', data.access_token);
-        return true;
+    
+      if (!response.ok) {
+        console.log("Login failed");
+        return false;
       }
-      return false;
+    
+      const data = await response.json();
+    
+      const newToken = data.access_token;
+      const tokenType = data.token_type || "bearer";
+    
+      // LƯU ĐÚNG ĐỊNH DẠNG
+      localStorage.setItem("token", newToken);
+      setToken(newToken);
+    
+      return true;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error("Login error:", error);
       return false;
     }
   };
+
 
   const register = async (email, password, fullName) => {
     try {
@@ -92,12 +110,22 @@ const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
   };
 
+  // ← Hiển thị loading khi đang check token
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${THEME.bg}`}>
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={{ user, token, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
 
 // Login Component
 const LoginPage = () => {
@@ -222,7 +250,7 @@ const ChatApp = () => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `bearer ${token}`,
         'Content-Type': 'application/json',
         ...options.headers
       }
@@ -307,7 +335,7 @@ const ChatApp = () => {
       const response = await fetch(`${API_BASE_URL}/subjects/${selectedSubject.id}/documents`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `bearer ${token}`,
           // Don't set Content-Type, let browser set multipart/form-data boundary
         },
         body: formData
@@ -338,7 +366,7 @@ const ChatApp = () => {
       const response = await fetch(`${API_BASE_URL}/chat/stream`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -640,7 +668,17 @@ const UploadForm = ({ onSubmit, onCancel }) => {
 const App = () => (
   <AuthProvider>
     <AuthContext.Consumer>
-      {({ token }) => token ? <ChatApp /> : <LoginPage />}
+      {({ token, user }) => {
+        // ← Đợi cả token VÀ user load xong
+        if (token && !user) {
+          return (
+            <div className={`min-h-screen flex items-center justify-center ${THEME.bg}`}>
+              <Loader2 className="w-8 h-8 text-white animate-spin" />
+            </div>
+          );
+        }
+        return token && user ? <ChatApp /> : <LoginPage />;
+      }}
     </AuthContext.Consumer>
   </AuthProvider>
 );
