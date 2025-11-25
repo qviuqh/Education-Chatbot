@@ -64,12 +64,10 @@ def get_current_user(
         user_id = int(sub)
 
     except (JWTError, ValueError):
-        # JWT sai, hết hạn, hoặc sub không convert sang int được
         raise credentials_exception
 
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
-        # token ok nhưng user không còn trong DB
         raise credentials_exception
 
     return user
