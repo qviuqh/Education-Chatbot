@@ -13,7 +13,9 @@ from .config import settings
 from . import models
 
 # OAuth2 scheme để lấy token từ header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_PREFIX}/auth/login"
+)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -21,21 +23,25 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     Tạo JWT access token
     """
     to_encode = data.copy()
-    
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
+    # luôn ép sub thành string cho chuẩn
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+
+    expire = datetime.utcnow() + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    
+
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return encoded_jwt
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> models.User:
     """
     Lấy user hiện tại từ JWT token
@@ -45,22 +51,27 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: int = payload.get("sub")
-        
-        if user_id is None:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        sub = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-            
-    except JWTError:
+
+        # token lưu id -> ép sang int
+        user_id = int(sub)
+
+    except (JWTError, ValueError):
+        # JWT sai, hết hạn, hoặc sub không convert sang int được
         raise credentials_exception
-    
+
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    
     if user is None:
+        # token ok nhưng user không còn trong DB
         raise credentials_exception
-    
+
     return user
 
 
