@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Plus, Menu, X, Book, FileText, LogOut, Sun, Moon, User, Upload, Loader2, AlertCircle } from 'lucide-react';
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8000';
+// API Configuration (align with backend /api/v1 prefix)
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 // --- LUXURY DARK THEME CONSTANTS ---
 const THEME = {
