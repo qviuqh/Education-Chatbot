@@ -12,7 +12,7 @@ transformers==4.55.0
 torch==2.8.0
 rank_bm25
 langdetect
-
+sentence_transformers 
 # FastAPI và server
 fastapi
 uvicorn[standard]
