@@ -19,6 +19,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    # sourcery skip: aware-datetime-for-utc
     """
     Tạo JWT access token
     """
@@ -31,18 +32,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire})
+    to_encode["exp"] = expire
 
-    encoded_jwt = jwt.encode(
+    return jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
-    return encoded_jwt
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
-) -> models.User:
+) -> models.User:  # sourcery skip: raise-from-previous-error
     """
     Lấy user hiện tại từ JWT token
     """
@@ -65,9 +65,10 @@ def get_current_user(
 
     except (JWTError, ValueError):
         raise credentials_exception
-
+    
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
+        # token ok nhưng user không còn trong DB
         raise credentials_exception
 
     return user
@@ -81,18 +82,16 @@ def get_user_subject(
     """
     Lấy subject và kiểm tra quyền sở hữu
     """
-    subject = db.query(models.Subject).filter(
+    if subject := db.query(models.Subject).filter(
         models.Subject.id == subject_id,
         models.Subject.user_id == current_user.id
-    ).first()
-    
-    if not subject:
+    ).first():
+        return subject
+    else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Subject not found or you don't have permission"
         )
-    
-    return subject
 
 
 def get_user_conversation(
@@ -103,15 +102,13 @@ def get_user_conversation(
     """
     Lấy conversation và kiểm tra quyền sở hữu
     """
-    conversation = db.query(models.Conversation).filter(
+    if (conversation := db.query(models.Conversation).filter(
         models.Conversation.id == conversation_id,
         models.Conversation.user_id == current_user.id
-    ).first()
-    
-    if not conversation:
+    ).first()):
+        return conversation
+    else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found or you don't have permission"
         )
-    
-    return conversation

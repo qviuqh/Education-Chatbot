@@ -77,7 +77,7 @@ const AuthProvider = ({ children }) => {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, full_name: fullName }) // Map fullName -> full_name
+        body: JSON.stringify({ email, password, full_name: fullName })
       });
       return response.ok;
     } catch (error) {
@@ -362,21 +362,23 @@ const ChatApp = () => {
         if (done) break;
 
         const chunk = decoder.decode(value);
-        // Parse SSE format: "data: ... \n\n"
         const lines = chunk.split('\n\n');
         
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6); // Remove "data: "
+            const data = line.slice(6);
             if (data === '[DONE]') break;
             
-            // Append data to the last message
             setMessages(prev => {
               const newMsgs = [...prev];
-              const lastMsg = newMsgs[newMsgs.length - 1];
+              const lastMsgIndex = newMsgs.length - 1;
+              const lastMsg = { ...newMsgs[lastMsgIndex] };
+              
               if (lastMsg.role === 'assistant') {
                 lastMsg.content += data;
+                newMsgs[lastMsgIndex] = lastMsg;
               }
+              
               return newMsgs;
             });
           }

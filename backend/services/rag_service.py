@@ -23,7 +23,7 @@ from ..rag_pipeline.rag import (
 def build_vector_store_for_conversation(
     db: Session,
     conversation_id: int
-) -> None:
+) -> None:  # sourcery skip: extract-method
     """
     Xây dựng vector store cho conversation
     
@@ -116,8 +116,8 @@ def build_vector_store_for_conversation(
         # Step 3: Create và save vector store
         print(f"\n💾 Step 3: Creating vector store...")
         vector_store = VectorStore(
-            dim=settings.EMBEDDING_DIMENSION,
-            index_path=vector_meta.index_path,
+            dim=embedder.model.get_sentence_embedding_dimension(),
+            path=vector_meta.index_path,
             meta_path=vector_meta.meta_path
         )
         
@@ -126,11 +126,11 @@ def build_vector_store_for_conversation(
         
         vector_store.add(embeddings, all_texts)
         vector_store.save()
-        print(f"  ✅ Vector store saved")
+        print("  ✅ Vector store saved")
         
         # Step 4: Update metadata
         vector_meta.doc_count = len(all_texts)
-        vector_meta.dimension = settings.EMBEDDING_DIMENSION
+        vector_meta.dimension = embedder.model.get_sentence_embedding_dimension()
         vector_meta.status = "ready"
         vector_meta.error_message = None
         
@@ -139,13 +139,13 @@ def build_vector_store_for_conversation(
         print(f"\n{'='*60}")
         print("✅ Vector store built successfully!")
         print(f"   - Chunks: {len(all_texts)}")
-        print(f"   - Dimension: {settings.EMBEDDING_DIMENSION}")
+        print(f"   - Dimension: {embedder.model.get_sentence_embedding_dimension()}")
         print("   - Status: ready")
         print(f"{'='*60}\n")
         
     except Exception as e:
         print(f"{'='*60}")
-        print("❌ Error building vector store: {e}")
+        print(f"❌ Error building vector store: {e}")
         print(f"{'='*60}\n")
         
         # Cập nhật lỗi

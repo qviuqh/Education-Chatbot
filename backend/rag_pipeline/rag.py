@@ -218,22 +218,27 @@ def answer_question_with_store(
     print(f"✅ Prompt built ({len(prompt)} chars)")
     
     # Step 5: Generate answer
+    target_model = model or settings.LLM_MODEL
+    
     print(f"\n🤖 Step 5: Generating answer...")
-    print(f"   Model: {model or 'default (from config)'}")
+    print(f"   Model: {target_model}")
     print(f"   Streaming: {streaming}")
     
     try:
         if streaming:
             print("✅ Streaming response started\n")
-            if model:
-                return generate_answer_stream(prompt, model=model, temperature=temperature or 0.7)
-            else:
-                return generate_answer_stream(prompt, temperature=temperature or 0.7)
+            # Luôn truyền target_model vào hàm
+            return generate_answer_stream(
+                prompt, 
+                model=target_model, 
+                temperature=temperature or settings.GENERATOR_TEMPERATURE
+            )
         else:
-            if model:
-                answer = generate_answer(prompt, model=model)
-            else:
-                answer = generate_answer(prompt)
+            # Luôn truyền target_model vào hàm
+            answer = generate_answer(
+                prompt, 
+                model=target_model
+            )
             print(f"✅ Answer generated ({len(answer)} chars)\n")
             return answer
             
