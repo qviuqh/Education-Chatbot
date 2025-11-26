@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from .config import settings
 from .db import init_db
+from .ai_deps import warmup_ai_models
 
 # Import routers
 from .api import auth, subjects, documents, conversations, chat
@@ -22,6 +23,11 @@ async def lifespan(app: FastAPI):
     print("🚀 Starting application...")
     init_db()
     print("✅ Database initialized")
+    
+    # Khởi tạo sẵn các model AI (singleton)
+    print("🤖 Initializing shared AI models...")
+    warmup_ai_models()
+    print("✅ AI models ready")
     
     yield
     

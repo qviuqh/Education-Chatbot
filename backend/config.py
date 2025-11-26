@@ -24,7 +24,12 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "RAG Learning Assistant"
     
     # CORS
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173"]
+    BACKEND_CORS_ORIGINS: list = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    ]
     
     # Embedder Settings (compatible with config.yaml)
     EMBEDDING_MODEL: str = "intfloat/multilingual-e5-base"

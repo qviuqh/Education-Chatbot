@@ -13,6 +13,7 @@ from ..config import settings
 from ..rag_pipeline.data_loader import load_document, chunk_documents
 from ..rag_pipeline.embedder import Embedder
 from ..rag_pipeline.vector_store import VectorStore
+from ..ai_deps import get_embedder
 from ..rag_pipeline.rag import (
     create_retriever, 
     answer_question_with_store,
@@ -107,7 +108,7 @@ def build_vector_store_for_conversation(
         
         # Step 2: Embed texts
         print(f"\n🔢 Step 2: Embedding texts...")
-        embedder = Embedder(model_name=settings.EMBEDDING_MODEL)
+        embedder = get_embedder()
         print(f"  Model: {settings.EMBEDDING_MODEL}")
         
         embeddings = embedder.encode(all_texts, prefix="passage")

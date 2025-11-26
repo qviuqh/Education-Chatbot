@@ -3,6 +3,7 @@ RAG Pipeline - Kết nối các components thành pipeline hoàn chỉnh
 """
 from typing import Generator, List, Dict, Any, Optional
 from ..config import settings
+from ..ai_deps import get_embedder, get_reranker
 
 # Import các components
 from .embedder import Embedder
@@ -32,7 +33,7 @@ class RAGRetriever:
         
         # Khởi tạo embedder nếu chưa có
         if embedder is None:
-            self.embedder = Embedder(model_name=settings.EMBEDDING_MODEL)
+            self.embedder = get_embedder()
         else:
             self.embedder = embedder
         
@@ -181,7 +182,7 @@ def answer_question_with_store(
     if use_reranker and len(contexts) > reranker_top_k:
         print(f"\n🎯 Step 2: Reranking contexts (top {reranker_top_k})...")
         try:
-            reranker = Reranker()
+            reranker = get_reranker()
             contexts = reranker.rerank(
                 query=question,
                 candidates=contexts,

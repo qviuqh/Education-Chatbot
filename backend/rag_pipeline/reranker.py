@@ -1,11 +1,15 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 
+from ..config import settings
+
 class Reranker:
-    def __init__(self, model_name: str, device=None):
-        self.tok = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    
+    def __init__(self, model_name: str | None = None, device=None):
+        model = model_name or settings.RERANKER_MODEL
+        
+        self.tok = AutoTokenizer.from_pretrained(model)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model)
+        
         # Tự chọn device nếu không truyền vào
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
