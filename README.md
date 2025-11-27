@@ -10,7 +10,6 @@
   - [3. Install dependencies](#3-install-dependencies)
   - [4. Environment configuration](#4-environment-configuration)
 - [🖼️ Instructions](#-instructions)
-- [⚙️ CI/CD Pipeline](#-cicd-pipeline)
 - [🧭 Next Steps](#-next-steps)
 
 ---
@@ -201,23 +200,7 @@ Lưu message vào DB
 
 Evaluate RAG quality (RAGAS)
 
-## ⚙️ CI/CD Pipeline
 
-Pipeline CI/CD bao gồm:
-
-🧪 Unit tests + API integration tests
-
-🧹 Linting (flake8, black)
-
-📦 Build Docker images
-
-🚀 Deploy backend (FastAPI)
-
-🚀 Deploy frontend (React)
-
-🗄️ Database migrations (Alembic)
-
-🔍 Monitor logs & errors (Grafana/Prometheus optional)
 
 ## 🧭 Next Steps
 Thêm multimodal RAG (PDF hình ảnh → captioning → OCR).
