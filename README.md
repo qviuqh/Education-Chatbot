@@ -25,52 +25,54 @@ This project incorporates modern ML techniques and a modular backend to ensure s
 
 ## 🏗️ Architecture
 
+```text
  ┌────────────────────────────────────────┐
- │                FRONTEND               │
- │   - Login / Register                    │
- │   - Upload PDF                          │
- │   - Subject Dashboard                   │
- │   - Chat UI (Streaming)                 │
+ │                FRONTEND                │
+ │   - Login / Register                   │
+ │   - Upload PDF                         │
+ │   - Subject Dashboard                  │
+ │   - Chat UI (Streaming)                │
  └────────────────────────────────────────┘
                  │  REST / SSE
                  ▼
  ┌────────────────────────────────────────┐
  │              BACKEND API               │
- │ FastAPI:                                │
- │   /auth                                 │
- │   /subjects                             │
- │   /documents                            │
- │   /conversations                        │
- │   /chat (sync + stream)                 │
+ │ FastAPI:                               │
+ │   /auth                                │
+ │   /subjects                            │
+ │   /documents                           │
+ │   /conversations                       │
+ │   /chat (sync + stream)                │
  └────────────────────────────────────────┘
                  │
                  ▼
  ┌────────────────────────────────────────┐
- │        RAG PIPELINE ENGINE            │
+ │        RAG PIPELINE ENGINE             │
  │  - Text Extraction (PDF/Image)         │
  │  - Chunking                            │
  │  - Embeddings                          │
  │  - Vector Store Retrieval + Reranking  │
  │  - Summarizer                          │
  │  - Question Generator                  │
- │  - LLM Response (Streaming)             │
+ │  - LLM Response (Streaming)            │
  └────────────────────────────────────────┘
                  │
                  ▼
  ┌───────────────────────────┐   ┌─────────────────────────┐
- │ Postgres (Relational DB)  │   │ Vector DB (pgvector)     │
- │ User / Subject / Document │   │ Chunk-level Embeddings   │
- │ Conversation / Messages   │   │ Metadata                 │
+ │ Postgres (Relational DB)  │   │ Vector DB (pgvector)    │
+ │ User / Subject / Document │   │ Chunk-level Embeddings  │
+ │ Conversation / Messages   │   │ Metadata                │
  └───────────────────────────┘   └─────────────────────────┘
                  │
                  ▼
          ┌─────────────────┐
          │ Background Jobs │
-         │   Celery/Redis   │
-         │ - Embedding      │
-         │ - Summaries      │
-         │ - QG generation  │
+         │   Celery/Redis  │
+         │ - Embedding     │
+         │ - Summaries     │
+         │ - QG generation │
          └─────────────────┘
+
          
 ## 📁 Folder Structure
 
