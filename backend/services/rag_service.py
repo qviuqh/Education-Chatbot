@@ -19,6 +19,7 @@ from ..rag_pipeline.rag import (
     answer_question_with_store,
     validate_retriever_setup
 )
+from .vector_store_cache import vector_store_cache
 
 
 def build_vector_store_for_conversation(
@@ -239,11 +240,21 @@ def answer_question_for_conversation(
         )
     
     try:
-        # Tạo retriever
-        retriever = create_retriever(
-            index_path=vector_meta.index_path,
-            meta_path=vector_meta.meta_path
-        )
+        # Lấy retriever từ cache nếu đã được preload theo môn học
+        retriever = vector_store_cache.get_retriever(conversation.id)
+        
+        if retriever is None:
+            retriever = create_retriever(
+                index_path=vector_meta.index_path,
+                meta_path=vector_meta.meta_path
+            )
+            
+            # Chỉ cache khi conversation thuộc môn học đang được chọn
+            vector_store_cache.cache_retriever(
+                subject_id=conversation.subject_id,
+                conversation_id=conversation.id,
+                retriever=retriever,
+            )
         
         # Gọi RAG pipeline
         answer = answer_question_with_store(

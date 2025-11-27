@@ -9,6 +9,7 @@ from .. import schemas, models
 from ..db import get_db
 from ..deps import get_current_user, get_user_conversation
 from ..services import conversation_service, rag_service
+from ..services.vector_store_cache import vector_store_cache
 
 router = APIRouter(tags=["Conversations"])
 
@@ -27,6 +28,10 @@ def list_conversations(
         current_user.id,
         subject_id
     )
+    
+    # Preload vector stores cho môn học được chọn để tránh phải đọc lại từ đĩa
+    vector_store_cache.set_active_subject(subject_id, conversations)
+    
     return conversations
 
 
