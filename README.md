@@ -112,3 +112,123 @@ education-chatbot/
 ```bash
 git clone https://github.com/yourusername/education-chatbot.git
 cd education-chatbot
+
+```
+### 2. Create and activate virtual environment
+```bash
+python -m venv venv
+source venv/bin/activate     # MacOS/Linux
+venv\Scripts\activate        # Windows
+```
+### 3. Install dependencies
+```bash
+Install dependencies
+```
+### 4. Set environment variables
+```bash
+OPENAI_API_KEY=your_key
+DATABASE_URL=postgresql://user:pass@localhost:5432/chatbot
+VECTOR_DB_URL=postgresql://user:pass@localhost:5432/chatbot
+JWT_SECRET=your_secret
+```
+## 🖼️ Instructions
+
+1. Upload learning materials
+
+Vào trang Subject → Upload
+
+Hệ thống sẽ:
+
+Trích xuất văn bản
+
+Chunking
+
+Tạo embeddings
+
+Lưu vào VectorDB
+
+Sinh tóm tắt
+
+Sinh câu hỏi ôn tập 
+
+2. Ask questions and chat
+
+Chọn môn học → Mở cuộc trò chuyện
+
+Chat hiển thị streaming
+
+Trả lời dựa trên nội dung tài liệu (không bịa).
+
+Mỗi message được lưu trong DB.
+
+3. Manage subjects/documents
+
+Tạo môn học mới
+
+Xem danh sách tài liệu
+
+Xóa / cập nhật tài liệu
+
+Xem lịch sử chat theo từng môn
+
+## 🧠 RAG Pipeline Overview
+
+Ingestion Pipeline
+
+Upload PDF
+
+Extract text & images
+
+Chunking (350–450 tokens)
+
+Generate embeddings
+
+Store in VectorDB
+
+Summaries + Question Generation
+
+Chat Pipeline
+
+Người dùng đặt câu hỏi
+
+Retrieve + Rerank chunks
+
+Tạo prompt chứa context
+
+LLM trả lời (stream)
+
+Lưu message vào DB
+
+Evaluate RAG quality (RAGAS)
+
+## ⚙️ CI/CD Pipeline
+
+Pipeline CI/CD bao gồm:
+
+🧪 Unit tests + API integration tests
+
+🧹 Linting (flake8, black)
+
+📦 Build Docker images
+
+🚀 Deploy backend (FastAPI)
+
+🚀 Deploy frontend (React)
+
+🗄️ Database migrations (Alembic)
+
+🔍 Monitor logs & errors (Grafana/Prometheus optional)
+
+## 🧭 Next Steps
+Thêm multimodal RAG (PDF hình ảnh → captioning → OCR).
+
+Thêm Flashcard generation.
+
+Thêm voice conversation mode.
+
+Thêm LLM fine-tuning theo từng môn học.
+
+Thêm RAG evaluation dashboard (RAGAS metrics).
+
+Triển khai bản mobile React Native.
+
