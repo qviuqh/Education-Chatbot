@@ -75,7 +75,7 @@ This project incorporates modern ML techniques and a modular backend to ensure s
 
          
 ## 📁 Folder Structure
-
+```text
 education-chatbot/
 │
 ├── backend/
