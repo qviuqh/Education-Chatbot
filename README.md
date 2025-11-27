@@ -73,7 +73,7 @@ This project incorporates modern ML techniques and a modular backend to ensure s
          │ - QG generation │
          └─────────────────┘
 
-```text
+```
        
 ## 📁 Folder Structure
 ```text
