@@ -44,7 +44,29 @@ class RAGRetriever:
             embedder=self.embedder
         )
         
-        print(f"✅ Retriever initialized with {len(self.retriever.store.texts)} chunks")
+        print(f"✅ Retriever initialized with {len(self.retriever.store.documents)} chunks")
+    
+    @staticmethod
+    def _format_context(doc: Dict[str, Any]) -> str:
+        metadata = doc.get("metadata", {})
+        source_parts = []
+        
+        filename = metadata.get("filename")
+        if filename:
+            source_parts.append(f"Source: {filename}")
+        elif metadata.get("source"):
+            source_parts.append(f"Source: {metadata.get('source')}")
+        
+        page = metadata.get("page")
+        if page is not None:
+            source_parts.append(f"Page: {page}")
+        
+        chunk_id = metadata.get("chunk_unique_id") or metadata.get("chunk_id")
+        if chunk_id:
+            source_parts.append(f"Chunk: {chunk_id}")
+        
+        meta_line = " | ".join(source_parts) if source_parts else "Source: unknown"
+        return f"[{meta_line}]\n{doc.get('text', '')}"
     
     def retrieve(
         self, 
@@ -96,6 +118,9 @@ class RAGRetriever:
                 )
                 if not is_relevant:
                     contexts = None
+            
+            if contexts:
+                contexts = [self._format_context(doc) for doc in contexts]
             
             return contexts
             

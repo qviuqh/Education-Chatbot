@@ -1,34 +1,38 @@
 import numpy as np
+from rank_bm25 import BM25Okapi
+
 from .embedder import Embedder
 from .vector_store import VectorStore
-from rank_bm25 import BM25Okapi
-from langchain_core.documents import Document
 
 
 class Retriever:
-    def __init__(self, store_path: str, meta_path: str, embedder=None, store=None,):
+    def __init__(self, store_path: str, meta_path: str, embedder=None, store=None):
         # 1. Load Semantic (FAISS) components (có thể dùng cache)
         self.embedder = embedder if embedder is not None else Embedder()
         self.store = (
             store
             if store is not None
-            else VectorStore(self.embedder.model.get_sentence_embedding_dimension(), store_path, meta_path)
+            else VectorStore(
+                self.embedder.model.get_sentence_embedding_dimension(),
+                store_path,
+                meta_path,
+            )
         )
         if store is None:
             try:
                 self.store.load()
-                print(f"Đã tải {len(self.store.texts)} chunks cho FAISS.")
+                print(f"Đã tải {len(self.store.documents)} chunks cho FAISS.")
             except Exception as e:
                 print(f"Lỗi khi tải VectorStore: {e}")
                 raise
 
         # 2. Load Keyword (BM25) components
-        if not self.store.texts:
+        if not self.store.documents:
             raise Exception("VectorStore không tải được văn bản (texts). Không thể khởi tạo BM25.")
 
-        tokenized_corpus = [doc.split(" ") for doc in self.store.texts]
+        tokenized_corpus = [doc["text"].split(" ") for doc in self.store.documents]
         self.bm25 = BM25Okapi(tokenized_corpus)
-        self.bm25_texts = self.store.texts
+        self.bm25_documents = self.store.documents
         print("Đã khởi tạo BM25 index xong.")
 
     def retrieve(
@@ -56,18 +60,18 @@ class Retriever:
 
         Returns:
             tuple: (fused_docs, is_relevant)
-                - fused_docs: Danh sách văn bản đã lọc
+                - fused_docs: Danh sách văn bản đã lọc (bao gồm metadata)
                 - is_relevant: True nếu tìm thấy tài liệu liên quan, False nếu không
         """
-
         # --- 1. Semantic Search (FAISS) với ngưỡng ---
         q_emb = self.embedder.encode([query], prefix="query")
         semantic_results = self.store.search(np.array(q_emb).reshape(1, -1), k=k_semantic)
-
-        semantic_docs = [(score, text) for score, text in semantic_results if score >= semantic_threshold]
-
+        
+        semantic_docs = [
+            (score, doc) for score, doc in semantic_results if score >= semantic_threshold
+        ]
+        
         print(f"Semantic: {len(semantic_docs)}/{len(semantic_results)} kết quả vượt ngưỡng {semantic_threshold}")
-
         # --- 2. Keyword Search (BM25) với ngưỡng động + ngưỡng tuyệt đối ---
         tokenized_query = query.lower().split(" ")
         keyword_scores = self.bm25.get_scores(tokenized_query)
@@ -93,7 +97,7 @@ class Retriever:
                 # Dừng nếu score đã dưới ngưỡng hoặc đủ k_keyword
                 if score < dynamic_threshold or len(keyword_docs) >= k_keyword:
                     break
-                keyword_docs.append((score, self.bm25_texts[i]))
+                keyword_docs.append((score, self.bm25_documents[i]))
 
             print(f"BM25: {len(keyword_docs)} kết quả vượt ngưỡng động ({dynamic_threshold:.4f})")
 
@@ -103,14 +107,16 @@ class Retriever:
 
         # Ưu tiên kết quả semantic (thường chính xác hơn)
         for score, doc in semantic_docs:
-            if doc not in seen_docs:
+            doc_id = doc["metadata"].get("chunk_unique_id") or doc["metadata"].get("chunk_id")
+            if doc_id not in seen_docs:
                 fused_docs.append(doc)
-                seen_docs.add(doc)
+                seen_docs.add(doc_id)
 
         for score, doc in keyword_docs:
-            if doc not in seen_docs:
+            doc_id = doc["metadata"].get("chunk_unique_id") or doc["metadata"].get("chunk_id")
+            if doc_id not in seen_docs:
                 fused_docs.append(doc)
-                seen_docs.add(doc)
+                seen_docs.add(doc_id)
 
         # --- 4. Kiểm tra độ liên quan ---
         is_relevant = len(fused_docs) >= min_results

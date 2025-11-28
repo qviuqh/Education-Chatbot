@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Plus, Menu, X, Book, FileText, LogOut, Sun, Moon, User, Upload, Loader2, AlertCircle } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api/v1';

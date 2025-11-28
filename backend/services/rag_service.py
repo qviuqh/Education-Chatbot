@@ -67,7 +67,7 @@ def build_vector_store_for_conversation(
         
         # Step 1: Load và chunk documents
         print("\n📚 Step 1: Loading and chunking documents...")
-        all_texts = []
+        all_chunks = []
         doc_count = 0
         
         for conv_doc in conversation.documents:
@@ -94,25 +94,46 @@ def build_vector_store_for_conversation(
                 print(f"     ✅ Created {len(chunks)} chunks")
                 
                 # Extract text từ chunks
-                texts = [chunk.page_content for chunk in chunks]
-                all_texts.extend(texts)
+                for chunk in chunks:
+                    metadata = chunk.metadata.copy() if chunk.metadata else {}
+                    unique_chunk_id = f"{document.id}-{metadata.get('chunk_id', len(all_chunks)+1)}"
+                    metadata.update(
+                        {
+                            "chunk_unique_id": unique_chunk_id,
+                            "document_id": document.id,
+                            "subject_id": document.subject_id,
+                            "conversation_id": conversation.id,
+                            "source": str(document.filepath),
+                            "filename": document.filename,
+                        }
+                    )
+                    chunk.metadata = metadata
+                    
+                    all_chunks.append(
+                        {
+                            "text": chunk.page_content,
+                            "metadata": metadata,
+                        }
+                    )
+                    
                 doc_count += 1
                 
             except Exception as e:
                 print(f"     ❌ Error loading document: {e}")
                 continue
         
-        if not all_texts:
+        if not all_chunks:
             raise Exception("No texts extracted from documents")
         
-        print(f"\n✅ Total: {len(all_texts)} chunks from {doc_count} documents")
+        print(f"\n✅ Total: {len(all_chunks)} chunks from {doc_count} documents")
         
         # Step 2: Embed texts
         print(f"\n🔢 Step 2: Embedding texts...")
         embedder = get_embedder()
         print(f"  Model: {settings.EMBEDDING_MODEL}")
         
-        embeddings = embedder.encode(all_texts, prefix="passage")
+        texts_for_embedding = [chunk["text"] for chunk in all_chunks]
+        embeddings = embedder.encode(texts_for_embedding, prefix="passage")
         print(f"  ✅ Created embeddings: shape {embeddings.shape}")
         
         # Step 3: Create và save vector store
@@ -126,12 +147,12 @@ def build_vector_store_for_conversation(
         print(f"  Index path: {vector_meta.index_path}")
         print(f"  Meta path: {vector_meta.meta_path}")
         
-        vector_store.add(embeddings, all_texts)
+        vector_store.add(embeddings, all_chunks)
         vector_store.save()
         print("  ✅ Vector store saved")
         
         # Step 4: Update metadata
-        vector_meta.doc_count = len(all_texts)
+        vector_meta.doc_count = len(all_chunks)
         vector_meta.dimension = embedder.model.get_sentence_embedding_dimension()
         vector_meta.status = "ready"
         vector_meta.error_message = None
@@ -140,7 +161,7 @@ def build_vector_store_for_conversation(
         
         print(f"\n{'='*60}")
         print("✅ Vector store built successfully!")
-        print(f"   - Chunks: {len(all_texts)}")
+        print(f"   - Chunks: {len(all_chunks)}")
         print(f"   - Dimension: {embedder.model.get_sentence_embedding_dimension()}")
         print("   - Status: ready")
         print(f"{'='*60}\n")
