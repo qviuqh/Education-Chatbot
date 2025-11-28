@@ -172,7 +172,8 @@ def delete_conversation(db: Session, conversation_id: int, user_id: int) -> None
     
     # Xóa vector store files
     if conversation.vector_store_meta:
-        from services.vector_paths import delete_vector_files
+        # SỬA LẠI IMPORT Ở ĐÂY: Dùng relative import
+        from .vector_paths import delete_vector_files
         delete_vector_files(
             conversation.vector_store_meta.index_path,
             conversation.vector_store_meta.meta_path
