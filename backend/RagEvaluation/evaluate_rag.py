@@ -7,8 +7,14 @@ from typing import List, Dict
 from datetime import datetime
 
 # --- Cấu hình đường dẫn import ---
+# Lấy đường dẫn thư mục hiện tại: .../backend/RagEvaluation
 current_dir = Path(__file__).resolve().parent
-sys.path.append(str(current_dir))
+# Lấy thư mục gốc project (chứa folder backend): .../backend/RagEvaluation -> .../backend -> .../
+project_root = current_dir.parent.parent
+
+# Thêm project_root vào sys.path để có thể import "backend" như một module
+if str(project_root) not in sys.path:
+    sys.path.append(str(project_root))
 
 # --- Import Libraries ---
 from datasets import Dataset
@@ -19,6 +25,7 @@ from ragas.metrics import (
     context_precision,
     context_recall,
 )
+from ragas.run_config import RunConfig
 
 # Import Wrappers cho Local Models
 try:
@@ -114,6 +121,7 @@ class RagasEvaluator:
                 temperature=0,
                 timeout=7200,  # 2h
                 num_ctx=4096,
+                format="json", 
             )
         )
         
@@ -274,16 +282,29 @@ class RagasEvaluator:
             print(f"📝 Đã lưu chi tiết đầy đủ vào: {details_file}")
             
             # 4. FILE CONFIG: Cấu hình evaluation
+            # Sử dụng os.path.join để nối đường dẫn an toàn trên mọi hệ điều hành
+            config_file = os.path.join(output_dir, f"config_{timestamp}.csv")
+            
+            # Lấy thông tin index path an toàn hơn
+            try:
+                # Thử lấy path từ retriever -> store -> path
+                idx_path = getattr(self.retriever.store, 'index_path', 'N/A')
+            except:
+                idx_path = getattr(self.retriever, 'index_path', 'N/A')
+
             config_data = {
                 'timestamp': [timestamp],
                 'llm_model': [self.llm_model],
                 'embedding_model': [self.embedding_model],
                 'num_questions': [len(rag_results)],
                 'metrics_used': [', '.join(metric_cols)],
-                'index_path': [getattr(self.retriever, 'index_path', 'N/A')],
+                'index_path': [str(idx_path)],
+                # Bổ sung thêm settings quan trọng nếu có
+                'timeout_config': [os.environ.get('RAGAS_TIMEOUT', 'Default')],
+                'ragas_version': ['Legacy' if not USE_NEW_RAGAS else 'New']
             }
+            
             df_config = pd.DataFrame(config_data)
-            config_file = f"{output_dir}/config_{timestamp}.csv"
             df_config.to_csv(config_file, index=False, encoding='utf-8-sig')
             print(f"⚙️  Đã lưu cấu hình vào: {config_file}")
             
@@ -331,7 +352,7 @@ class RagasEvaluator:
         self, 
         use_all_metrics: bool = False,
         use_reranker: bool = False,
-        batch_size: int = 2
+        batch_size: int = 1
     ):
         """
         Thực hiện đánh giá
@@ -368,16 +389,22 @@ class RagasEvaluator:
         print("="*60 + "\n")
         
         try:
-            # Tăng timeout
-            os.environ['RAGAS_TIMEOUT'] = '7200'
+            # Cấu hình RunConfig để kiểm soát timeout và worker của Ragas
+            my_run_config = RunConfig(
+                timeout=3600,      # 1 giờ cho mỗi task (đủ lâu cho local LLM)
+                max_workers=1,     # Chỉ chạy 1 luồng để không làm nghẽn Ollama
+                max_retries=3,     # Thử lại nếu lỗi
+                max_wait=180       # Thời gian chờ tối đa giữa các retry
+            )
             
             results = evaluate(
                 dataset=dataset,
                 metrics=metrics,
                 llm=self.judge_llm,
                 embeddings=self.judge_embeddings,
-                batch_size=batch_size,
+                run_config=my_run_config,  # <--- Truyền config vào đây
             )
+            # -----------------------
             
             # Lưu kết quả chi tiết
             self.save_detailed_results(results, rag_results)
@@ -397,22 +424,32 @@ def main():
     print("🎯 RAG PIPELINE EVALUATION WITH RAGAS (LOCAL LLM)")
     print("="*70 + "\n")
     
-    # Cấu hình
+    # Cấu hình đường dẫn file dữ liệu
+    # Lấy đường dẫn tương đối từ project root
     INDEX_FILE = "backend/data/vectordb/index.faiss" 
     META_FILE = "backend/data/vectordb/chunks.json"
-    TEST_DATA_FILE = "test_data.json"
-    OUTPUT_DIR = "evaluation_results"
+    TEST_DATA_FILE = os.path.join(current_dir, "test_data.json")
+    OUTPUT_DIR = os.path.join(current_dir, "evaluation_results")
     
-    # Kiểm tra file index
+    # Kiểm tra file index từ root
     if not os.path.exists(INDEX_FILE):
-        print(f"⚠️  Không tìm thấy {INDEX_FILE}")
-        print("Thử dùng đường dẫn mặc định...")
-        INDEX_FILE = "data/vectordb/index.faiss" 
-        META_FILE = "data/vectordb/chunks.json"
-        
-        if not os.path.exists(INDEX_FILE):
+        print(f"⚠️  Không tìm thấy {INDEX_FILE} tại thư mục gốc.")
+        # Thử tìm trong thư mục hiện tại hoặc data
+        possible_paths = [
+            "data/vectordb/index.faiss",
+            "../data/vectordb/index.faiss",
+            "../../data/vectordb/index.faiss"
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                INDEX_FILE = path
+                META_FILE = path.replace("index.faiss", "chunks.json")
+                print(f"✅ Đã tìm thấy tại: {INDEX_FILE}")
+                break
+        else:
             print("❌ Không tìm thấy file vector store nào!")
-            return
+            # Tránh crash nếu không có file, nhưng vẫn cho chạy để debug
+            # return 
     
     print(f"✅ Target Vector Store: {INDEX_FILE}")
     

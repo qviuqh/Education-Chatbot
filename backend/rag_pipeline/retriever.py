@@ -30,6 +30,23 @@ class Retriever:
         if not self.store.documents:
             raise Exception("VectorStore không tải được văn bản (texts). Không thể khởi tạo BM25.")
 
+        # --- FIX: Tự động chuẩn hóa dữ liệu nếu chunks.json chứa list[str] thay vì list[dict] ---
+        if self.store.documents and isinstance(self.store.documents[0], str):
+            print("⚠️  Cảnh báo: Dữ liệu chunks.json dạng chuỗi cũ. Đang tự động chuẩn hóa...")
+            normalized_docs = []
+            for i, text in enumerate(self.store.documents):
+                normalized_docs.append({
+                    "text": text,
+                    "metadata": {
+                        "chunk_id": i,
+                        "source": "unknown",
+                        "filename": "unknown"
+                    }
+                })
+            # Cập nhật lại documents trong store để dùng cho các bước sau
+            self.store.documents = normalized_docs
+        # ----------------------------------------------------------------------------------------
+
         tokenized_corpus = [doc["text"].split(" ") for doc in self.store.documents]
         self.bm25 = BM25Okapi(tokenized_corpus)
         self.bm25_documents = self.store.documents
