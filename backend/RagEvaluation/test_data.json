@@ -1,0 +1,39 @@
+{
+  "questions": [
+    "Apache Airflow là gì và mục đích sử dụng chính của nó là gì?",
+    "Kiến trúc của Airflow gồm những thành phần chính nào và chức năng của Scheduler là gì?",
+    "So sánh sự khác biệt giữa LocalExecutor và CeleryExecutor.",
+    "DAG trong Airflow là gì và ý nghĩa của tính chất 'Acyclic'?"
+  ],
+  "ground_truths": [
+    [
+      "Apache Airflow là một công cụ nguồn mở dùng để tạo, lên lịch và giám sát quy trình công việc (workflow) theo chương trình. Nó được các kỹ sư dữ liệu sử dụng để điều phối các đường ống dữ liệu (data pipelines) phức tạp, giúp quản lý phụ thuộc, tiến trình, và trạng thái của các tác vụ."
+    ],
+    [
+      "Kiến trúc Airflow gồm các thành phần: Scheduler, Executor, Worker, Metadata Database và Web UI. Trong đó, Scheduler là bộ lập lịch trung tâm, chịu trách nhiệm quét các file DAG, phân tích logic phụ thuộc, xác định khi nào một task đủ điều kiện chạy và đẩy yêu cầu thực thi tới Executor."
+    ],
+    [
+      "LocalExecutor chạy các task ngay trên cùng một máy với Scheduler, thiết lập đơn giản nhưng giới hạn tài nguyên và khả năng mở rộng. Ngược lại, CeleryExecutor sử dụng message broker để phân tán task ra nhiều máy worker khác nhau, cho phép mở rộng quy mô lớn (scale-out) và tăng khả năng chịu lỗi."
+    ],
+    [
+      "DAG (Directed Acyclic Graph) là đồ thị có hướng không chu trình, dùng để mô tả workflow gồm nhiều task và mối quan hệ giữa chúng. 'Acyclic' nghĩa là không tồn tại vòng lặp, đảm bảo workflow luôn có điểm bắt đầu và kết thúc xác định, tránh việc task phụ thuộc ngược lại chính nó gây lặp vô hạn."
+    ]
+  ],
+  "ground_truth_contexts": [
+    [
+      "Giới thiệu tổng quan về Airflow \nApache Airflow là một công cụ nguồn mở để tạo, lên lịch và giám sát quy trình công việc theo chương trình.\nNó được các Kỹ sư Dữ liệu sử dụng để điều phối quy trình công việc hoặc đường ống."
+    ],
+    [
+      "Kiến trúc tổng quan \nScheduler – Bộ lập lịch trung tâm \nScheduler là trái tim của hệ thống Airflow, chịu trách nhiệm phát hiện, lập lịch và kích hoạt các tác vụ (tasks) trong các luồng công việc (workflows).",
+      "Metadata Database – Bộ nhớ trung tâm của hệ thống... Web UI – Giao diện quản lý và giám sát",
+      "Executor – Bộ điều phối thực thi... Worker – Nút xử lý tác vụ"
+    ],
+    [
+      "LocalExecutor \nLocalExecutor là một loại executor trong đó các task được chạy ngay trên cùng một máy (node) với Scheduler, thay vì gửi đi cho các worker từ xa.",
+      "CeleryExecutor \nCeleryExecutor là một loại executor trong Apache Airflow cho phép phân tán việc thực thi task ra nhiều máy (worker node) khác nhau... sử dụng một hệ thống trung gian gọi là message broker"
+    ],
+    [
+      "DAG (Directed Acyclic Graph) \nKhái niệm DAG trong Airflow \nTrong Apache Airflow, DAG (Directed Acyclic Graph) là trái tim của hệ thống, dùng để mô tả một workflow... “Acyclic” nghĩa là không tồn tại vòng lặp — một task không thể phụ thuộc ngược lại chính nó."
+    ]
+  ]
+}
