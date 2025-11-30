@@ -3,8 +3,6 @@ from fastapi import HTTPException, status
 from typing import List
 
 from .. import models, schemas
-from .vector_paths import get_vector_paths
-from ..config import settings
 
 
 def create_conversation(
@@ -48,23 +46,6 @@ def create_conversation(
     
     db.add(db_conversation)
     db.flush()  # Để có conversation.id
-    
-    # Tạo vector store metadata
-    index_path, meta_path = get_vector_paths(
-        user_id,
-        conversation_data.subject_id,
-        db_conversation.id
-    )
-    
-    vector_meta = models.VectorStoreMeta(
-        conversation_id=db_conversation.id,
-        index_path=index_path,
-        meta_path=meta_path,
-        dimension=settings.EMBEDDING_DIMENSION,
-        status="empty"
-    )
-    
-    db.add(vector_meta)
     
     # Liên kết documents
     for doc in documents:
@@ -169,15 +150,6 @@ def delete_conversation(db: Session, conversation_id: int, user_id: int) -> None
     Xóa conversation
     """
     conversation = get_conversation_by_id(db, conversation_id, user_id)
-    
-    # Xóa vector store files
-    if conversation.vector_store_meta:
-        # SỬA LẠI IMPORT Ở ĐÂY: Dùng relative import
-        from .vector_paths import delete_vector_files
-        delete_vector_files(
-            conversation.vector_store_meta.index_path,
-            conversation.vector_store_meta.meta_path
-        )
     
     db.delete(conversation)
     db.commit()

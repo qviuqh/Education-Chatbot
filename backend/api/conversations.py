@@ -29,8 +29,9 @@ def list_conversations(
         subject_id
     )
     
-    # Preload vector stores cho môn học được chọn để tránh phải đọc lại từ đĩa
-    vector_store_cache.set_active_subject(subject_id, conversations)
+    # Preload vector store cho môn học được chọn để tránh phải đọc lại từ đĩa
+    vector_meta = rag_service.get_subject_vector_meta(db, subject_id)
+    vector_store_cache.set_active_subject(subject_id, vector_meta)
     
     return conversations
 
@@ -43,12 +44,11 @@ def list_conversations(
 def create_conversation(
     subject_id: int,
     conversation_data: schemas.ConversationCreate,
-    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Tạo conversation mới và build vector store
+    Tạo conversation mới (vector store được chia sẻ theo subject)
     """
     # Verify subject_id matches
     if conversation_data.subject_id != subject_id:
@@ -63,13 +63,6 @@ def create_conversation(
         db,
         current_user.id,
         conversation_data
-    )
-    
-    # Build vector store trong background
-    background_tasks.add_task(
-        rag_service.build_vector_store_for_conversation,
-        db,
-        conversation.id
     )
     
     return conversation
@@ -93,10 +86,9 @@ def get_conversation(
     # Lấy documents
     documents = [conv_doc.document for conv_doc in conversation.documents]
     
-    # Lấy vector store status
-    vector_status = None
-    if conversation.vector_store_meta:
-        vector_status = conversation.vector_store_meta.status
+    # Lấy vector store status cấp môn học
+    vector_meta = rag_service.get_subject_vector_meta(db, conversation.subject_id)
+    vector_status = vector_meta.status if vector_meta else None
     
     return {
         **conversation.__dict__,
@@ -144,8 +136,10 @@ def get_vector_store_status(
     """
     Lấy trạng thái vector store
     """
-    # Verify ownership
-    conversation_service.get_conversation_by_id(db, conversation_id, current_user.id)
+    # Verify ownership & lấy conversation
+    conversation = conversation_service.get_conversation_by_id(
+        db, conversation_id, current_user.id
+    )
     
     vector_meta = rag_service.get_vector_store_status(db, conversation_id)
     return vector_meta
@@ -161,14 +155,16 @@ def rebuild_vector_store(
     """
     Rebuild vector store cho conversation
     """
-    # Verify ownership
-    conversation_service.get_conversation_by_id(db, conversation_id, current_user.id)
+    # Verify ownership và lấy conversation
+    conversation = conversation_service.get_conversation_by_id(
+        db, conversation_id, current_user.id
+    )
     
     # Rebuild trong background
     background_tasks.add_task(
-        rag_service.build_vector_store_for_conversation,
+        rag_service.build_vector_store_for_subject,
         db,
-        conversation_id
+        conversation.subject_id
     )
     
     return {"message": "Vector store rebuild started"}

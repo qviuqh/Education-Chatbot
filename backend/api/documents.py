@@ -1,14 +1,14 @@
 """
 Documents API - Upload và quản lý tài liệu
 """
-from fastapi import APIRouter, Depends, status, UploadFile, File
+from fastapi import APIRouter, Depends, status, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 
 from .. import schemas, models
 from ..db import get_db
 from ..deps import get_current_user, get_user_subject
-from ..services import document_service
+from ..services import document_service, rag_service
 
 router = APIRouter(tags=["Documents"])
 
@@ -37,6 +37,7 @@ def list_documents(
 )
 def upload_document(
     subject_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -49,6 +50,13 @@ def upload_document(
         subject_id,
         current_user.id,
         file
+    )
+    
+    # Trigger rebuild vector store ở cấp môn học sau khi upload
+    background_tasks.add_task(
+        rag_service.build_vector_store_for_subject,
+        db,
+        subject_id
     )
     return document
 

@@ -35,8 +35,17 @@ class Subject(Base):
     # Relationships
     user = relationship("User", back_populates="subjects")
     documents = relationship("Document", back_populates="subject", cascade="all, delete-orphan")
-    conversations = relationship("Conversation", back_populates="subject", cascade="all, delete-orphan")
-
+    conversations = relationship(
+        "Conversation",
+        back_populates="subject",
+        cascade="all, delete-orphan"
+    )
+    vector_store_meta = relationship(
+        "VectorStoreMeta",
+        back_populates="subject",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 class Document(Base):
     __tablename__ = "documents"
@@ -69,7 +78,6 @@ class Conversation(Base):
     subject = relationship("Subject", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
     documents = relationship("ConversationDocument", back_populates="conversation", cascade="all, delete-orphan")
-    vector_store_meta = relationship("VectorStoreMeta", back_populates="conversation", uselist=False, cascade="all, delete-orphan")
 
 
 class Message(Base):
@@ -104,7 +112,7 @@ class VectorStoreMeta(Base):
     __tablename__ = "vector_store_meta"
     
     id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False, unique=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False, unique=True)
     index_path = Column(String(500), nullable=False)
     meta_path = Column(String(500), nullable=False)
     dimension = Column(Integer)
@@ -115,4 +123,4 @@ class VectorStoreMeta(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    conversation = relationship("Conversation", back_populates="vector_store_meta")
+    subject = relationship("Subject", back_populates="vector_store_meta")

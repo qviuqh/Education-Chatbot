@@ -73,7 +73,8 @@ class RAGRetriever:
         question: str, 
         k_semantic: int = None,
         k_keyword: int = None,
-        use_validation: bool = True
+        use_validation: bool = True,
+        allowed_document_ids: Optional[set[int]] = None
     ) -> Optional[List[str]]:
         """
         Retrieve relevant contexts cho câu hỏi
@@ -120,6 +121,14 @@ class RAGRetriever:
                     contexts = None
             
             if contexts:
+                if allowed_document_ids is not None:
+                    contexts = [
+                        doc
+                        for doc in contexts
+                        if doc.get("metadata", {}).get("document_id") in allowed_document_ids
+                    ]
+            
+            if contexts:
                 contexts = [self._format_context(doc) for doc in contexts]
             
             return contexts
@@ -152,7 +161,8 @@ def answer_question_with_store(
     reranker_top_k: int = 3,
     detect_language: bool = True,
     model: str = None,
-    temperature: float = None
+    temperature: float = None,
+    allowed_document_ids: Optional[set[int]] = None
 ) -> str | Generator[str, None, None]:
     """
     RAG Pipeline hoàn chỉnh: Retrieve + Generate
@@ -181,7 +191,8 @@ def answer_question_with_store(
         question=question,
         k_semantic=settings.TOP_K_RETRIEVE,
         k_keyword=settings.TOP_K_RETRIEVE,
-        use_validation=True
+        use_validation=True,
+        allowed_document_ids=allowed_document_ids
     )
     
     # Kiểm tra contexts

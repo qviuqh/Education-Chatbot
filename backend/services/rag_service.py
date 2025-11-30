@@ -3,7 +3,7 @@ RAG Service - Orchestration RAG: build index, answer question
 """
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from typing import Generator, Optional
+from typing import Generator, Optional, Iterable
 import os
 
 from .. import models
@@ -20,44 +20,72 @@ from ..rag_pipeline.rag import (
     validate_retriever_setup
 )
 from .vector_store_cache import vector_store_cache
+from .vector_paths import get_vector_paths
 
 
-def build_vector_store_for_conversation(
+def _ensure_subject_vector_meta(db: Session, subject: models.Subject) -> models.VectorStoreMeta:
+    """Lấy hoặc tạo metadata cho vector store của một môn học."""
+
+    if subject.vector_store_meta:
+        return subject.vector_store_meta
+
+    index_path, meta_path = get_vector_paths(subject.user_id, subject.id)
+    vector_meta = models.VectorStoreMeta(
+        subject_id=subject.id,
+        index_path=index_path,
+        meta_path=meta_path,
+        dimension=settings.EMBEDDING_DIMENSION,
+        status="empty",
+    )
+
+    db.add(vector_meta)
+    db.commit()
+    db.refresh(vector_meta)
+
+    return vector_meta
+
+
+def get_subject_vector_meta(db: Session, subject_id: int) -> models.VectorStoreMeta:
+    """Lấy metadata vector store cho subject theo ID."""
+
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+
+    if not subject:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subject not found",
+        )
+
+    return _ensure_subject_vector_meta(db, subject)
+
+def build_vector_store_for_subject(
     db: Session,
-    conversation_id: int
+    subject_id: int,
+    document_filter: Optional[Iterable[int]] = None
 ) -> None:  # sourcery skip: extract-method
     """
-    Xây dựng vector store cho conversation
+    Xây dựng vector store cho Môn học
     
     Steps:
-    1. Load tất cả documents của conversation
-    2. Chunk documents thành các đoạn nhỏ
-    3. Embed các chunks
+    1. Load tất cả documents của môn học (có thể filter theo danh sách cho phép)
+    2. Chunk documents
+    3. Embed chunks
     4. Lưu vào FAISS index
     5. Cập nhật VectorStoreMeta
     """
     print(f"\n{'='*60}")
-    print(f"🚀 Building vector store for conversation {conversation_id}")
+    print(f"🚀 Building vector store for subject {subject_id}")
     print(f"{'='*60}\n")
     
-    # Lấy conversation và metadata
-    conversation = db.query(models.Conversation).filter(
-        models.Conversation.id == conversation_id
-    ).first()
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
     
-    if not conversation:
+    if not subject:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Conversation not found"
+            detail="Subject not found"
         )
     
-    vector_meta = conversation.vector_store_meta
-    
-    if not vector_meta:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Vector store metadata not found"
-        )
+    vector_meta = _ensure_subject_vector_meta(db, subject)
     
     try:
         # Cập nhật status
@@ -70,9 +98,12 @@ def build_vector_store_for_conversation(
         all_chunks = []
         doc_count = 0
         
-        for conv_doc in conversation.documents:
-            document = conv_doc.document
-            
+        documents = subject.documents
+        if document_filter:
+            allowed_ids = set(document_filter)
+            documents = [doc for doc in documents if doc.id in allowed_ids]
+        
+        for document in documents:
             # Kiểm tra file tồn tại
             if not os.path.exists(document.filepath):
                 print(f"⚠️  File not found: {document.filepath}")
@@ -102,7 +133,6 @@ def build_vector_store_for_conversation(
                             "chunk_unique_id": unique_chunk_id,
                             "document_id": document.id,
                             "subject_id": document.subject_id,
-                            "conversation_id": conversation.id,
                             "source": str(document.filepath),
                             "filename": document.filename,
                         }
@@ -214,15 +244,9 @@ def answer_question_for_conversation(
             detail="Conversation not found"
         )
     
-    vector_meta = conversation.vector_store_meta
+    vector_meta = _ensure_subject_vector_meta(db, conversation.subject)
     
     # Kiểm tra vector store
-    if not vector_meta:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Vector store metadata not found"
-        )
-    
     if vector_meta.status == "empty":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -261,8 +285,8 @@ def answer_question_for_conversation(
         )
     
     try:
-        # Lấy retriever từ cache nếu đã được preload theo môn học
-        retriever = vector_store_cache.get_retriever(conversation.id)
+        # Lấy retriever từ cache theo môn học
+        retriever = vector_store_cache.get_retriever(conversation.subject_id)
         
         if retriever is None:
             retriever = create_retriever(
@@ -270,12 +294,14 @@ def answer_question_for_conversation(
                 meta_path=vector_meta.meta_path
             )
             
-            # Chỉ cache khi conversation thuộc môn học đang được chọn
             vector_store_cache.cache_retriever(
                 subject_id=conversation.subject_id,
-                conversation_id=conversation.id,
                 retriever=retriever,
             )
+        
+        allowed_doc_ids = {
+            conv_doc.document_id for conv_doc in conversation.documents
+        }
         
         # Gọi RAG pipeline
         answer = answer_question_with_store(
@@ -284,7 +310,8 @@ def answer_question_for_conversation(
             streaming=streaming,
             use_reranker=use_reranker,
             reranker_top_k=3,
-            detect_language=True
+            detect_language=True,
+            allowed_document_ids=allowed_doc_ids or None
         )
         
         return answer
@@ -311,15 +338,17 @@ def get_vector_store_status(
     Returns:
         VectorStoreMeta instance
     """
-    vector_meta = db.query(models.VectorStoreMeta).filter(
-        models.VectorStoreMeta.conversation_id == conversation_id
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.id == conversation_id
     ).first()
     
-    if not vector_meta:
+    if not conversation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vector store not found"
+            detail="Conversation not found"
         )
+    
+    vector_meta = _ensure_subject_vector_meta(db, conversation.subject)
     
     return vector_meta
 
@@ -337,16 +366,17 @@ def rebuild_vector_store_for_conversation(
     """
     print(f"\n🔄 Rebuilding vector store for conversation {conversation_id}")
     
-    # Lấy vector meta
-    vector_meta = db.query(models.VectorStoreMeta).filter(
-        models.VectorStoreMeta.conversation_id == conversation_id
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.id == conversation_id
     ).first()
     
-    if not vector_meta:
+    if not conversation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vector store not found"
+            detail="Conversation not found"
         )
+    
+    vector_meta = _ensure_subject_vector_meta(db, conversation.subject)
     
     # Xóa files cũ nếu có
     try:
@@ -367,7 +397,7 @@ def rebuild_vector_store_for_conversation(
     db.commit()
     
     # Build lại
-    build_vector_store_for_conversation(db, conversation_id)
+    build_vector_store_for_subject(db, conversation.subject_id)
 
 
 def validate_conversation_vector_store(
@@ -388,6 +418,7 @@ def validate_conversation_vector_store(
     
     validation = {
         "conversation_id": conversation_id,
+        "subject_id": vector_meta.subject_id,
         "status": vector_meta.status,
         "doc_count": vector_meta.doc_count,
         "dimension": vector_meta.dimension,

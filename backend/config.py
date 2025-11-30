@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # Reranker Settings (compatible with config.yaml)
     RERANKER_MODEL: str = "BAAI/bge-reranker-base"
     RERANKER_SCORE: float = 0.5
-    USE_RERANKER: bool = True  # Mặc định tắt, bật khi cần
+    USE_RERANKER: bool = True
     
     # Generator Settings
     GENERATOR_TEMPERATURE: float = 0.1

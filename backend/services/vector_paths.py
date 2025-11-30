@@ -6,10 +6,9 @@ from ..config import settings
 def get_vector_paths(
     user_id: int,
     subject_id: int,
-    conversation_id: int
 ) -> Tuple[str, str]:
     """
-    Tạo đường dẫn cho vector store của conversation
+    Tạo đường dẫn cho vector store ở cấp độ môn học (subject)
     
     Returns:
         Tuple[str, str]: (index_path, meta_path)
@@ -18,9 +17,9 @@ def get_vector_paths(
     base_path = Path(settings.INDEX_DIR) / f"user_{user_id}" / f"subject_{subject_id}"
     base_path.mkdir(parents=True, exist_ok=True)
     
-    # Đường dẫn index và metadata
-    index_path = base_path / f"conv_{conversation_id}.index"
-    meta_path = base_path / f"conv_{conversation_id}.json"
+    # Đường dẫn index và metadata cho toàn bộ môn học
+    index_path = base_path / "subject.index"
+    meta_path = base_path / "subject.json"
     
     return str(index_path), str(meta_path)
 
