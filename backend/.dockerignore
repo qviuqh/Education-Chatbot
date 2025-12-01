@@ -13,3 +13,4 @@ uploads
 indexes
 __pycache__/
 .cache
+frontend/
