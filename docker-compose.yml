@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./indexes:/app/indexes
+      - ./app.db:/app/app.db
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:///./app.db
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      SECRET_KEY: ${SECRET_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./app.db"
     
     # # JWT
-    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    SECRET_KEY: str = "your_secret_key"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
