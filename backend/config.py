@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     
     # LLM Settings (sử dụng Ollama như trong code của bạn)
     LLM_MODEL: str = "qwen2:7b"  # Model mặc định cho Ollama
-    OLLAMA_BASE_URL: str = "http://localhost:11434"  # Ollama API endpoint
+    OLLAMA_BASE_URL: str = "http://ollama:11434" # Ollama API endpoint
     
     # Retriever Settings
     TOP_K_RETRIEVE: int = 5

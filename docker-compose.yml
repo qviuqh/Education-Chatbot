@@ -6,6 +6,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
     restart: unless-stopped
 
   backend:
@@ -18,12 +20,14 @@ services:
       - ./uploads:/app/uploads
       - ./indexes:/app/indexes
       - ./app.db:/app/app.db
+      - hf_cache:/root/.cache/huggingface
     env_file:
       - .env
     environment:
       DATABASE_URL: sqlite:///./app.db
       OLLAMA_BASE_URL: http://ollama:11434
       SECRET_KEY: ${SECRET_KEY}
+      HF_HOME: /root/.cache/huggingface
     depends_on:
       - ollama
 
@@ -38,3 +42,4 @@ services:
 
 volumes:
   ollama_data:
+  hf_cache:
