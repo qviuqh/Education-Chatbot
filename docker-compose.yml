@@ -1,4 +1,13 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -13,10 +22,10 @@ services:
       - .env
     environment:
       DATABASE_URL: sqlite:///./app.db
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_BASE_URL: http://ollama:11434
       SECRET_KEY: ${SECRET_KEY}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - ollama
 
   frontend:
     build:
@@ -26,3 +35,6 @@ services:
       - "5173:80"
     depends_on:
       - backend
+
+volumes:
+  ollama_data:
