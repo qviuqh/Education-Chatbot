@@ -3,7 +3,10 @@ import { Send, Plus, Menu, X, Book, FileText, LogOut, User, Upload, Loader2, Ale
 import ReactMarkdown from 'react-markdown';
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+// const API_BASE_URL = 'http://localhost:8000/api/v1';
+// API Configuration
+const API_BASE_URL = '/api/v1';
+
 
 // --- THEME CONSTANTS ---
 const THEME = {

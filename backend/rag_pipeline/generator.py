@@ -1,4 +1,4 @@
-from ollama import chat, generate
+from ..ai_deps import get_ollama_client
 import sys
 
 def generate_answer_stream(
@@ -11,7 +11,10 @@ def generate_answer_stream(
     Hỗ trợ truyền temperature cho model.
     """
     try:
-        stream_resp = chat(
+        # Lấy client đã được cấu hình URL chính xác (http://ollama:11434)
+        client = get_ollama_client()
+        
+        stream_resp = client.chat(
             model=model,
             messages=[{'role': 'user', 'content': prompt}],
             stream=True,
@@ -23,6 +26,8 @@ def generate_answer_stream(
             yield chunk['message']['content']
     
     except Exception as e:
+        # Log ra console để dễ debug trong docker logs
+        print(f"Error in generate_answer_stream: {e}", file=sys.stderr)
         yield f"Lỗi khi sinh phản hồi: {e}"
 
 def generate_answer(
@@ -35,8 +40,12 @@ def generate_answer(
     Trả về câu trả lời đầy đủ.
     """
     try:
-        resp = generate(model=model, prompt=prompt, stream=False)
+        # Lấy client đã được cấu hình URL chính xác
+        client = get_ollama_client()
+        
+        resp = client.generate(model=model, prompt=prompt, stream=False)
         return resp.get("response", "")
     
     except Exception as e:
+        print(f"Error in generate_answer: {e}", file=sys.stderr)
         return f"Lỗi khi sinh phản hồi: {e}"
