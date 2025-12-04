@@ -1,22 +1,4 @@
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    deploy:
-          resources:
-            reservations:
-              devices:
-                - driver: nvidia
-                  count: all
-                  capabilities: [gpu]
-    restart: unless-stopped
-
   backend:
     build:
       context: .
@@ -32,12 +14,12 @@ services:
       - .env
     environment:
       DATABASE_URL: sqlite:///./app.db
-      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
       SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /root/.cache/huggingface
-      NO_PROXY: "ollama,localhost,127.0.0.1"
-    depends_on:
-      - ollama
+      NO_PROXY: "ollama,localhost,127.0.0.1,host.docker.internal"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build:
@@ -49,5 +31,4 @@ services:
       - backend
 
 volumes:
-  ollama_data:
   hf_cache:

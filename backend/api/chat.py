@@ -1,6 +1,9 @@
 """
 Chat API - Endpoint chat với RAG
 """
+import asyncio
+import anyio
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -105,7 +108,10 @@ async def chat_stream(
     
     async def generate_response() -> AsyncGenerator[str, None]:
         """
-        Generator để stream response
+        Generator để stream response. 
+        
+        Chuyển phần sinh chuỗi đồng bộ sang thread để tránh block event loop
+        (quan trọng khi chạy trong container) và gửi SSE từng chunk.
         """
         try:
             full_answer = ""
@@ -118,11 +124,17 @@ async def chat_stream(
                 streaming=True
             )
             
-            # Stream từng chunk
-            for chunk in answer_generator:
+            # Đọc generator đồng bộ trong thread để không chặn event loop
+            while True:
+                chunk = await anyio.to_thread.run_sync(next, answer_generator, None)
+                if chunk is None:
+                    break
+                
                 full_answer += chunk
                 # Format SSE
                 yield f"data: {chunk}\n\n"
+                
+                await asyncio.sleep(0)  # Nhả control cho event loop
             
             # Lưu complete answer
             conversation_service.save_message(
@@ -142,5 +154,9 @@ async def chat_stream(
     
     return StreamingResponse(
         generate_response(),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
     )
